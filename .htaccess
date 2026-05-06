@@ -1,0 +1,25 @@
+Options -Indexes
+ServerSignature Off
+
+# Protect sensitive directories
+<FilesMatch "\.(sql|md|log|sh|env)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Protect includes directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^lib/ - [F,L]
+    RewriteRule ^backups/ - [F,L]
+</IfModule>
+
+# UTF-8 everywhere
+AddDefaultCharset UTF-8
+
+# Prevent clickjacking
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
