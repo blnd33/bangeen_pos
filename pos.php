@@ -15,9 +15,43 @@ $currency = get_setting('currency_symbol','IQD');
 .scan-bar{display:flex;gap:.5rem;align-items:center}
 .scan-input{flex:1;font-size:1rem;font-family:var(--font-en)!important;font-weight:700;letter-spacing:.04em}
 
-.cat-tabs{display:flex;gap:.4rem;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.cat-tabs{display:flex;gap:.4rem;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;scroll-behavior:smooth}
+.cat-tabs::-webkit-scrollbar{display:none}
 .cat-tab{padding:.35rem .9rem;border-radius:99px;border:1px solid var(--border);background:var(--surface2);font-size:.8rem;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:var(--font)}
 .cat-tab:hover,.cat-tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+.cat-scroll-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:.3rem;
+}
+.cat-scroll-wrap::before,.cat-scroll-wrap::after{
+  content:'';
+  position:absolute;
+  top:0;bottom:0;width:40px;
+  pointer-events:none;
+  z-index:2;
+}
+.cat-scroll-wrap::before{
+  <?= ALIGN_START ?>:28px;
+  background:linear-gradient(to <?= ALIGN_END ?>,var(--bg),transparent);
+}
+.cat-scroll-wrap::after{
+  <?= ALIGN_END ?>:28px;
+  background:linear-gradient(to <?= ALIGN_START ?>,var(--bg),transparent);
+}
+.cat-arrow{
+  flex-shrink:0;
+  width:28px;height:28px;border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;transition:all .15s;
+  z-index:3;
+}
+.cat-arrow:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
 
 .product-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.6rem;align-content:start}
 .product-tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.85rem .7rem;cursor:pointer;transition:all .15s;text-align:center;display:flex;flex-direction:column;gap:.35rem}
@@ -61,19 +95,38 @@ $currency = get_setting('currency_symbol','IQD');
     <div class="card" style="padding:.75rem">
       <div class="scan-bar">
         <i class="fa fa-barcode" style="color:var(--brand);font-size:1.2rem"></i>
-        <input type="text" id="barcodeInput" class="scan-input"
-          placeholder="<?= LANG==='ar'?'امسح الباركود أو ابحث عن المنتج...':'Scan barcode or search product...' ?>"
-          autofocus autocomplete="off">
+        <div style="flex:1;position:relative">
+          <input type="text" id="barcodeInput" class="scan-input"
+            placeholder="<?= LANG==='ar'?'امسح الباركود أو ابحث عن المنتج...':'Scan barcode or search product...' ?>"
+            autofocus autocomplete="off"
+            style="padding-<?= ALIGN_END ?>:2.2rem">
+          <button id="searchClearBtn" onclick="clearSearch()"
+            style="display:none;position:absolute;<?= ALIGN_END ?>:8px;top:50%;transform:translateY(-50%);
+                   background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
+                   width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
         <button class="btn btn-primary" onclick="searchProduct()"><i class="fa fa-search"></i></button>
       </div>
     </div>
 
-    <!-- Category tabs -->
-    <div class="cat-tabs">
-      <span class="cat-tab active" onclick="filterCat(0,this)"><?= LANG==='ar'?'الكل':'All' ?></span>
-      <?php foreach ($cats as $c): ?>
-      <span class="cat-tab" onclick="filterCat(<?= $c['id'] ?>,this)"><?= sanitize(LANG==='ar'?$c['name_ar']:($c['name_en']?:$c['name_ar'])) ?></span>
-      <?php endforeach; ?>
+    <!-- Category tabs with scroll arrows -->
+    <div class="cat-scroll-wrap">
+      <button class="cat-arrow" id="catPrev" onclick="scrollCats(-1)">
+        <i class="fa fa-chevron-<?= DIR==='rtl'?'right':'left' ?>"></i>
+      </button>
+
+      <div class="cat-tabs" id="catTabs">
+        <span class="cat-tab active" data-catid="0" onclick="filterCat(0,this)"><?= LANG==='ar'?'الكل':'All' ?></span>
+        <?php foreach ($cats as $c): ?>
+        <span class="cat-tab" data-catid="<?= $c['id'] ?>" onclick="filterCat(<?= $c['id'] ?>,this)"><?= sanitize(LANG==='ar'?$c['name_ar']:($c['name_en']?:$c['name_ar'])) ?></span>
+        <?php endforeach; ?>
+      </div>
+
+      <button class="cat-arrow" id="catNext" onclick="scrollCats(1)">
+        <i class="fa fa-chevron-<?= DIR==='rtl'?'left':'right' ?>"></i>
+      </button>
     </div>
 
     <!-- Products -->
@@ -166,6 +219,12 @@ function renderGrid(products) {
   `).join('');
 }
 
+function scrollCats(dir) {
+  const tabs = document.getElementById('catTabs');
+  const amount = 220;
+  tabs.scrollBy({ left: dir * amount, behavior: 'smooth' });
+}
+
 function filterCat(catId, el) {
   currentCat = catId;
   document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
@@ -174,41 +233,75 @@ function filterCat(catId, el) {
   renderGrid(filtered);
 }
 
-// Barcode / search — only keydown Enter to avoid double scan
+// ── SEARCH / BARCODE — filters grid, does NOT auto-add ──────
+document.getElementById('barcodeInput').addEventListener('input', function() {
+  filterBySearch(this.value);
+});
+
 document.getElementById('barcodeInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') {
     e.preventDefault();
-    searchProduct();
+    filterBySearch(this.value);
+  }
+  if (e.key === 'Escape') {
+    this.value = '';
+    filterBySearch('');
   }
 });
 
-let _searching = false;
-async function searchProduct() {
-  if (_searching) return;
-  _searching = true;
-  setTimeout(() => { _searching = false; }, 1000);
+function filterBySearch(q) {
+  q = q.replace(/\r|\n|\t/g, '').trim().toLowerCase();
 
-  let q = document.getElementById('barcodeInput').value;
-  q = q.replace(/\r|\n|\t/g, '').trim();
-  if (!q) { _searching = false; return; }
+  // Show clear button
+  const clearBtn = document.getElementById('searchClearBtn');
+  if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
 
-  console.log('Scanned:', q);
-
-  try {
-    const r = await fetch('http://localhost/bangeen_pos/api/product_lookup.php?q='+encodeURIComponent(q)+'&lang='+LANG);
-    const data = await r.json();
-    if (data.success && data.product) {
-      addToCart(data.product);
-      document.getElementById('barcodeInput').value='';
-      document.getElementById('barcodeInput').focus();
-    } else {
-      showToast((LANG==='ar'?'المنتج غير موجود: ':'Not found: ') + q, 'error', 4000);
-      document.getElementById('barcodeInput').select();
-    }
-  } catch(e) {
-    showToast('API Error: ' + e.message, 'error', 5000);
-    console.error(e);
+  if (!q) {
+    // Reset to current category filter
+    const activeCat = document.querySelector('.cat-tab.active');
+    const catId = activeCat ? parseInt(activeCat.dataset.catid || 0) : 0;
+    const filtered = catId === 0 ? allProducts : allProducts.filter(p => p.category_id == catId);
+    renderGrid(filtered);
+    return;
   }
+
+  // Filter by name (AR or EN) OR barcode
+  const results = allProducts.filter(p =>
+    (p.name_ar && p.name_ar.toLowerCase().includes(q)) ||
+    (p.name_en && p.name_en.toLowerCase().includes(q)) ||
+    (p.barcode_text && p.barcode_text.toLowerCase() === q)
+  );
+
+  renderGrid(results);
+
+  // If exactly one product found by barcode — highlight it
+  if (results.length === 1 && results[0].barcode_text &&
+      results[0].barcode_text.toLowerCase() === q) {
+    // Scroll grid to top so it's visible
+    const grid = document.getElementById('productGrid');
+    if (grid) grid.scrollTop = 0;
+  }
+
+  if (results.length === 0) {
+    const grid = document.getElementById('productGrid');
+    if (grid) grid.innerHTML = `<div class="text-muted text-center" style="grid-column:1/-1;padding:2rem">
+      <i class="fa fa-search" style="font-size:2rem;opacity:.3;display:block;margin-bottom:.5rem"></i>
+      ${LANG==='ar' ? 'لا توجد نتائج لـ "'+q+'"' : 'No results for "'+q+'"'}
+    </div>`;
+  }
+}
+
+function clearSearch() {
+  const inp = document.getElementById('barcodeInput');
+  inp.value = '';
+  filterBySearch('');
+  inp.focus();
+}
+
+// Legacy kept for any direct barcode scanner that fires its own call
+async function searchProduct() {
+  const q = document.getElementById('barcodeInput').value.trim();
+  if (q) filterBySearch(q);
 }
 
 // Cart

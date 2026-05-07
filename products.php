@@ -53,10 +53,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)$_POST['id'];
         $db->exec("UPDATE counters SET value=value+1 WHERE name='barcode_seq'");
         $seq = (int)$db->query("SELECT value FROM counters WHERE name='barcode_seq'")->fetchColumn();
-        $barcode_text = 'IQ' . str_pad($seq, 6, '0', STR_PAD_LEFT);
+        $barcode_text = 'BGN' . str_pad($seq, 6, '0', STR_PAD_LEFT);
         $db->prepare("UPDATE products SET barcode_text=?, barcode_image=NULL WHERE id=?")->execute([$barcode_text, $id]);
-        flash(LANG==='ar'?'تم توليد الباركود':'Barcode generated');
-        header('Location: http://localhost/bangeen_pos/products.php?lang='.LANG); exit;
+        echo json_encode(['success'=>true,'barcode'=>$barcode_text]); exit;
+    }
+
+    if ($action === 'save_barcode') {
+        $id      = (int)$_POST['id'];
+        $barcode = trim($_POST['barcode_text'] ?? '');
+        if (!$barcode) { echo json_encode(['success'=>false,'error'=>'Empty']); exit; }
+        // Check not already used by another product
+        $existing = $db->prepare("SELECT id FROM products WHERE barcode_text=? AND id!=?");
+        $existing->execute([$barcode, $id]);
+        if ($existing->fetch()) {
+            echo json_encode(['success'=>false,'error'=> LANG==='ar'?'الباركود مستخدم لمنتج آخر':'Barcode already used by another product']);
+            exit;
+        }
+        $db->prepare("UPDATE products SET barcode_text=?, barcode_image=NULL WHERE id=?")->execute([$barcode, $id]);
+        echo json_encode(['success'=>true,'barcode'=>$barcode]); exit;
     }
 }
 
@@ -110,6 +124,14 @@ require_once __DIR__ . '/includes/layout.php';
     letter-spacing: 1px;
     color: #333;
     text-align: center;
+}
+.sticker-price {
+    font-size: 12px;
+    font-weight: 900;
+    color: #000;
+    text-align: center;
+    letter-spacing: .5px;
+    font-family: Arial Black, Arial, sans-serif;
 }
 
 /* PRINT STYLES */
@@ -172,18 +194,29 @@ require_once __DIR__ . '/includes/layout.php';
 
     .sticker-barcode svg {
         width: 46mm !important;
-        height: 16mm !important;
+        height: 20mm !important;
     }
 
     .sticker-number {
         font-family: 'Courier New', monospace !important;
-        font-size: 8pt !important;
+        font-size: 7pt !important;
         font-weight: 700 !important;
         letter-spacing: 2px !important;
         color: #000 !important;
         text-align: center !important;
         line-height: 1 !important;
         width: 100% !important;
+    }
+
+    .sticker-price {
+        font-family: Arial Black, Arial, sans-serif !important;
+        font-size: 10pt !important;
+        font-weight: 900 !important;
+        color: #000 !important;
+        text-align: center !important;
+        width: 100% !important;
+        letter-spacing: .5px !important;
+        line-height: 1.2 !important;
     }
 
     .no-print { display: none !important; }
@@ -241,7 +274,6 @@ require_once __DIR__ . '/includes/layout.php';
         </td>
         <td>
           <?php if ($p['barcode_text']): ?>
-            <!-- JsBarcode inline SVG -->
             <svg id="bc_<?= $p['id'] ?>" style="height:36px;width:120px"></svg>
             <div class="mono" style="font-size:.62rem;color:var(--muted)"><?= sanitize($p['barcode_text']) ?></div>
           <?php else: ?>
@@ -260,17 +292,15 @@ require_once __DIR__ . '/includes/layout.php';
             <button class="btn btn-sm btn-secondary" onclick="editProduct(<?= htmlspecialchars(json_encode($p),ENT_QUOTES) ?>)">
               <i class="fa fa-pen"></i>
             </button>
+            <!-- Barcode Manager Button -->
+            <button class="btn btn-sm btn-secondary" title="<?= LANG==='ar'?'إدارة الباركود':'Manage Barcode' ?>"
+              onclick="openBarcodeModal(<?= $p['id'] ?>,'<?= addslashes(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?>','<?= addslashes($p['barcode_text']??'') ?>','<?= $p['price'] ?>')">
+              <i class="fa fa-barcode"></i>
+            </button>
             <button class="btn btn-sm btn-secondary" title="<?= t('print_label') ?>"
-                    onclick="printSingleLabel('<?= addslashes($p['barcode_text']??'') ?>','<?= addslashes(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?>')">
+                    onclick="printSingleLabel('<?= addslashes($p['barcode_text']??'') ?>','<?= addslashes(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?>','<?= $p['price'] ?>')">
               <i class="fa fa-print"></i>
             </button>
-            <form method="POST" style="display:inline">
-              <input type="hidden" name="action" value="regen_barcode">
-              <input type="hidden" name="id" value="<?= $p['id'] ?>">
-              <button type="submit" class="btn btn-sm btn-warning" title="<?= t('generate_barcode') ?>">
-                <i class="fa fa-barcode"></i>
-              </button>
-            </form>
             <form method="POST" style="display:inline" onsubmit="return confirm('<?= t('confirm_delete') ?>')">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="<?= $p['id'] ?>">
@@ -351,7 +381,7 @@ require_once __DIR__ . '/includes/layout.php';
         <input type="number" id="copiesPerProduct" value="1" min="1" max="50" style="text-align:center">
       </div>
       <div class="form-group" style="display:none">
-        <input type="hidden" id="showPrice" value="no">
+        <input type="hidden" id="showPrice" value="yes">
       </div>
       <div class="form-group">
         <label><?= LANG==='ar'?'فلترة الفئة':'Filter category' ?></label>
@@ -488,9 +518,9 @@ function filterModalProducts(){
 }
 
 // ── Print single label from table ────────────────────────
-function printSingleLabel(barcode, name){
+function printSingleLabel(barcode, name, price){
   if (!barcode) { alert('<?= LANG==="ar"?"لا يوجد باركود":"No barcode" ?>'); return; }
-  executePrint([{ barcode, name, price: '' }], 1, false);
+  executePrint([{ barcode, name, price: price || '' }], 1, true);
 }
 
 // ── Execute print ─────────────────────────────────────────
@@ -515,13 +545,14 @@ function executePrint(products, copies, showPrice){
 
   products.forEach(p => {
     for (let i = 0; i < copies; i++) {
+      const priceLabel = p.price ? `IQD ${parseInt(p.price).toLocaleString()}` : '';
       html += `
         <div class="barcode-sticker">
-          <div class="sticker-name">${p.name}</div>
           <div class="sticker-barcode">
             <svg class="print-bc" data-val="${p.barcode}"></svg>
           </div>
           <div class="sticker-number">${p.barcode}</div>
+          ${priceLabel ? `<div class="sticker-price">${priceLabel}</div>` : ''}
         </div>`;
     }
   });
@@ -550,6 +581,169 @@ function executePrint(products, copies, showPrice){
     window.print();
     setTimeout(() => { area.style.display = 'none'; }, 500);
   }, 300);
+}
+</script>
+
+<!-- ── BARCODE MANAGER MODAL ─────────────────────────────── -->
+<div class="modal-overlay" id="barcodeModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">
+        <i class="fa fa-barcode text-brand"></i>
+        &nbsp;<?= LANG==='ar'?'إدارة الباركود':'Barcode Manager' ?>
+      </span>
+      <button class="modal-close" onclick="closeModal('barcodeModal')">✕</button>
+    </div>
+
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1.2rem" id="bcProductName"></div>
+
+    <!-- Preview -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1.2rem;text-align:center;margin-bottom:1.5rem;min-height:90px" id="bcPreviewWrap">
+      <svg id="bcPreviewSvg" style="max-width:240px;height:60px"></svg>
+      <div id="bcPreviewText" class="mono" style="font-size:.75rem;color:var(--muted);margin-top:4px"></div>
+      <div id="bcPreviewPrice" style="font-size:.9rem;font-weight:800;color:var(--brand);margin-top:2px"></div>
+    </div>
+
+    <!-- Option 1: Enter barcode manually -->
+    <div style="margin-bottom:1rem">
+      <label style="font-size:.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.5rem">
+        <?= LANG==='ar'?'① أدخل الباركود يدوياً':'① Enter barcode manually' ?>
+      </label>
+      <div class="flex gap-1">
+        <input type="text" id="bcManualInput"
+          placeholder="<?= LANG==='ar'?'اكتب أو امسح الباركود...':'Type or scan barcode...' ?>"
+          style="flex:1;font-family:monospace;font-size:.95rem;letter-spacing:1px"
+          oninput="previewBarcode(this.value)">
+        <button class="btn btn-primary" onclick="saveBarcode()">
+          <i class="fa fa-save"></i> <?= LANG==='ar'?'حفظ':'Save' ?>
+        </button>
+      </div>
+      <div id="bcError" style="color:var(--danger);font-size:.78rem;margin-top:.4rem;display:none"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:.75rem;margin:1.2rem 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px"><?= LANG==='ar'?'أو':'OR' ?></span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- Option 2: Auto generate -->
+    <button class="btn btn-warning btn-full" onclick="generateBarcode()" style="font-size:.9rem;padding:.75rem">
+      <i class="fa fa-magic"></i>
+      &nbsp;<?= LANG==='ar'?'② توليد باركود تلقائي':'② Auto-generate barcode' ?>
+    </button>
+
+    <input type="hidden" id="bcProductId">
+    <input type="hidden" id="bcProductPrice">
+  </div>
+</div>
+
+<script>
+// ── Barcode Modal ─────────────────────────────────────────
+let _bcCurrentBarcode = '';
+
+function openBarcodeModal(id, name, barcode, price) {
+  document.getElementById('bcProductId').value    = id;
+  document.getElementById('bcProductPrice').value = price;
+  document.getElementById('bcProductName').textContent = name;
+  document.getElementById('bcManualInput').value = barcode;
+  document.getElementById('bcError').style.display = 'none';
+  _bcCurrentBarcode = barcode;
+
+  previewBarcode(barcode);
+  openModal('barcodeModal');
+  setTimeout(() => document.getElementById('bcManualInput').focus(), 200);
+}
+
+function previewBarcode(val) {
+  val = val.trim();
+  const svg  = document.getElementById('bcPreviewSvg');
+  const txt  = document.getElementById('bcPreviewText');
+  const priceEl = document.getElementById('bcPreviewPrice');
+  const price = document.getElementById('bcProductPrice').value;
+
+  if (!val) {
+    svg.innerHTML = '';
+    txt.textContent = '';
+    priceEl.textContent = '';
+    return;
+  }
+
+  try {
+    JsBarcode(svg, val, {
+      format:'CODE128', width:1.8, height:52,
+      displayValue:false, margin:2,
+      background:'transparent', lineColor:'#1C1410'
+    });
+    txt.textContent = val;
+    priceEl.textContent = price ? 'IQD ' + parseInt(price).toLocaleString() : '';
+  } catch(e) {
+    svg.innerHTML = '';
+    txt.textContent = '<?= LANG==="ar"?"باركود غير صالح":"Invalid barcode" ?>';
+  }
+}
+
+async function saveBarcode() {
+  const id  = document.getElementById('bcProductId').value;
+  const val = document.getElementById('bcManualInput').value.trim();
+  const err = document.getElementById('bcError');
+  err.style.display = 'none';
+
+  if (!val) { err.textContent = '<?= LANG==="ar"?"أدخل الباركود":"Enter a barcode" ?>'; err.style.display='block'; return; }
+
+  const fd = new FormData();
+  fd.append('action','save_barcode');
+  fd.append('id', id);
+  fd.append('barcode_text', val);
+
+  const r = await fetch('/bangeen_pos/products.php?lang=<?= LANG ?>', { method:'POST', body:fd });
+  const d = await r.json();
+
+  if (d.success) {
+    closeModal('barcodeModal');
+    showToast('<?= LANG==="ar"?"تم حفظ الباركود ✓":"Barcode saved ✓" ?>', 'success');
+    refreshBarcodeInTable(id, d.barcode);
+  } else {
+    err.textContent = d.error || 'Error';
+    err.style.display = 'block';
+  }
+}
+
+async function generateBarcode() {
+  const id = document.getElementById('bcProductId').value;
+
+  const fd = new FormData();
+  fd.append('action','regen_barcode');
+  fd.append('id', id);
+
+  const r = await fetch('/bangeen_pos/products.php?lang=<?= LANG ?>', { method:'POST', body:fd });
+  const d = await r.json();
+
+  if (d.success) {
+    document.getElementById('bcManualInput').value = d.barcode;
+    previewBarcode(d.barcode);
+    // Auto-save it
+    const fd2 = new FormData();
+    fd2.append('action','save_barcode');
+    fd2.append('id', id);
+    fd2.append('barcode_text', d.barcode);
+    await fetch('/bangeen_pos/products.php?lang=<?= LANG ?>', { method:'POST', body:fd2 });
+    closeModal('barcodeModal');
+    showToast('<?= LANG==="ar"?"تم توليد الباركود ✓":"Barcode generated ✓" ?>', 'success');
+    refreshBarcodeInTable(id, d.barcode);
+  }
+}
+
+function refreshBarcodeInTable(id, barcode) {
+  const svg = document.getElementById('bc_' + id);
+  if (svg) {
+    try {
+      JsBarcode(svg, barcode, { format:'CODE128', width:1.4, height:32, displayValue:false, margin:1, background:'transparent' });
+      // update the text below
+      const next = svg.nextElementSibling;
+      if (next) next.textContent = barcode;
+    } catch(e) {}
+  }
 }
 </script>
 
