@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS suppliers;
 DROP TABLE IF EXISTS counters;
+DROP TABLE IF EXISTS user_permissions;
 DROP TABLE IF EXISTS permissions;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS users;
@@ -29,7 +30,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     full_name_ar VARCHAR(100),
     full_name_en VARCHAR(100),
-    role ENUM('admin','manager','cashier') DEFAULT 'cashier',
+    role ENUM('owner','admin','manager','cashier') DEFAULT 'cashier',
     is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -136,7 +137,7 @@ CREATE TABLE settings (
     value TEXT
 );
 
--- Permissions
+-- Permissions (role-based defaults, legacy)
 CREATE TABLE permissions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role ENUM('manager','cashier') NOT NULL,
@@ -146,6 +147,16 @@ CREATE TABLE permissions (
     can_edit TINYINT(1) DEFAULT 0,
     can_delete TINYINT(1) DEFAULT 0,
     UNIQUE KEY role_module (role, module)
+);
+
+-- User-level permissions (used by permissions.php and has_permission())
+CREATE TABLE IF NOT EXISTS user_permissions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    page VARCHAR(50) NOT NULL,
+    granted TINYINT(1) DEFAULT 0,
+    UNIQUE KEY user_page (user_id, page),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ── Finance Module ─────────────────────────────────────────
@@ -187,6 +198,7 @@ INSERT INTO counters (name, value) VALUES ('barcode_seq', 0);
 
 -- Default password = "password" for all users
 INSERT INTO users (username, password_hash, full_name_ar, full_name_en, role) VALUES
+('owner',   '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'المالك',        'Owner',         'owner'),
 ('admin',   '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'مدير النظام',  'System Admin',  'admin'),
 ('manager', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'مدير المتجر',  'Store Manager', 'manager'),
 ('cashier', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'أمين الصندوق', 'Cashier',       'cashier');

@@ -4,7 +4,6 @@
 // بهنگین کریستال — الإعدادات الأساسية والترجمة
 // ============================================================
 
-// Buffer all output so header() redirects always work regardless of output order
 if (!ob_get_level()) ob_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -33,7 +32,7 @@ define('DIR',  $LANG === 'ar' ? 'rtl' : 'ltr');
 define('ALIGN_START', $LANG === 'ar' ? 'right' : 'left');
 define('ALIGN_END',   $LANG === 'ar' ? 'left'  : 'right');
 
-// Translation strings
+// ── Translations ──────────────────────────────────────────
 $TRANSLATIONS = [
     // Nav
     'dashboard'       => ['ar'=>'لوحة التحكم',       'en'=>'Dashboard'],
@@ -43,6 +42,7 @@ $TRANSLATIONS = [
     'suppliers'       => ['ar'=>'الموردون',            'en'=>'Suppliers'],
     'stock'           => ['ar'=>'المخزون',             'en'=>'Stock'],
     'sales_history'   => ['ar'=>'سجل المبيعات',       'en'=>'Sales History'],
+    'exchange'        => ['ar'=>'المبادلة والاسترداد', 'en'=>'Exchange & Returns'],
     'reports'         => ['ar'=>'التقارير',            'en'=>'Reports'],
     'users'           => ['ar'=>'المستخدمون',          'en'=>'Users'],
     'settings'        => ['ar'=>'الإعدادات',           'en'=>'Settings'],
@@ -137,7 +137,6 @@ $TRANSLATIONS = [
     'add_to_cart'     => ['ar'=>'أضف للسلة',          'en'=>'Add to Cart'],
     'remove'          => ['ar'=>'حذف',                 'en'=>'Remove'],
     'sale_complete'   => ['ar'=>'تمت عملية البيع',    'en'=>'Sale Complete'],
-    'finance' => ['ar'=>'المالية', 'en'=>'Finance'],
     // Finance
     'finance'           => ['ar'=>'المالية',                  'en'=>'Finance'],
     'sales_report'      => ['ar'=>'تقرير المبيعات',          'en'=>'Sales Report'],
@@ -161,6 +160,12 @@ $TRANSLATIONS = [
     'total_owed_to_us'  => ['ar'=>'إجمالي المستحق لنا',     'en'=>'Total Owed to Us'],
     'total_we_owe'      => ['ar'=>'إجمالي ما علينا',        'en'=>'Total We Owe'],
     'net_debt_position' => ['ar'=>'صافي موقف الدين',        'en'=>'Net Debt Position'],
+    'owner'             => ['ar'=>'مالك',                    'en'=>'Owner'],
+    // Permissions
+    'permissions'       => ['ar'=>'الصلاحيات',              'en'=>'Permissions'],
+    'manage_perms'      => ['ar'=>'إدارة الصلاحيات',        'en'=>'Manage Permissions'],
+    'perms_saved'       => ['ar'=>'تم حفظ الصلاحيات بنجاح','en'=>'Permissions saved successfully'],
+    'access_denied'     => ['ar'=>'ليس لديك صلاحية الوصول لهذه الصفحة','en'=>'You do not have permission to access this page'],
 ];
 
 function t(string $key): string {
@@ -195,62 +200,203 @@ function is_logged_in(): bool { return isset($_SESSION['pos_user_id']); }
 
 function require_login(): void {
     if (!is_logged_in()) {
-        if (defined('API_REQUEST')) { http_response_code(401); die(json_encode(['success'=>false,'error'=>'Unauthorized'])); }
-        header('Location: /bangeen_pos/index.php'); exit;
+        if (defined('API_REQUEST')) {
+            http_response_code(401);
+            die(json_encode(['success'=>false,'error'=>'Unauthorized']));
+        }
+        header('Location: /bangeen_pos/index.php');
+        exit;
     }
 }
 
 function require_role(string ...$roles): void {
-    require_login();
-    if (!in_array($_SESSION['pos_role'] ?? '', $roles)) {
-        if (defined('API_REQUEST')) { http_response_code(403); die(json_encode(['success'=>false,'error'=>'Forbidden'])); }
-        header('Location: /bangeen_pos/dashboard.php?err=forbidden'); exit;
+    $user = current_user();
+    if (!$user || !in_array($user['role'], $roles)) {
+        header('Location: /bangeen_pos/dashboard.php?lang=' . LANG . '&denied=1');
+        exit;
     }
 }
 
 function current_user(): array {
-    return ['id'=>$_SESSION['pos_user_id']??null,'name'=>$_SESSION['pos_username']??'','role'=>$_SESSION['pos_role']??'cashier'];
+    return [
+        'id'   => $_SESSION['pos_user_id'] ?? null,
+        'name' => $_SESSION['pos_username'] ?? '',
+        'role' => $_SESSION['pos_role']     ?? 'cashier',
+    ];
+}
+
+// ── Permissions ───────────────────────────────────────────
+
+/**
+ * All manageable pages in the system.
+ * key => ['icon', 'ar' label, 'en' label]
+ */
+function get_all_pages(): array {
+    return [
+        'dashboard'     => ['icon'=>'fa-gauge',            'ar'=>'لوحة التحكم',         'en'=>'Dashboard'],
+        'pos'           => ['icon'=>'fa-cash-register',    'ar'=>'نقطة البيع',          'en'=>'POS / Sales'],
+        'products'      => ['icon'=>'fa-box',              'ar'=>'المنتجات',             'en'=>'Products'],
+        'categories'    => ['icon'=>'fa-tags',             'ar'=>'الفئات',              'en'=>'Categories'],
+        'suppliers'     => ['icon'=>'fa-truck',            'ar'=>'الموردون',             'en'=>'Suppliers'],
+        'stock'         => ['icon'=>'fa-warehouse',        'ar'=>'المخزون',             'en'=>'Stock'],
+        'sales_history' => ['icon'=>'fa-clock-rotate-left','ar'=>'سجل المبيعات',       'en'=>'Sales History'],
+        'exchange'      => ['icon'=>'fa-right-left',       'ar'=>'المبادلة والاسترداد','en'=>'Exchange & Returns'],
+        'reports'       => ['icon'=>'fa-chart-bar',        'ar'=>'التقارير',            'en'=>'Reports'],
+        'finance'       => ['icon'=>'fa-coins',            'ar'=>'المالية',             'en'=>'Finance'],
+        'users'         => ['icon'=>'fa-users-gear',       'ar'=>'المستخدمون',          'en'=>'Users'],
+        'permissions'   => ['icon'=>'fa-shield-halved',    'ar'=>'الصلاحيات',           'en'=>'Permissions'],
+        'settings'      => ['icon'=>'fa-gear',             'ar'=>'الإعدادات',           'en'=>'Settings'],
+        'backup'        => ['icon'=>'fa-floppy-disk',      'ar'=>'النسخ الاحتياطي',    'en'=>'Backup'],
+    ];
+}
+
+/**
+ * Pages restricted to admin/owner only — cannot be granted to other roles.
+ */
+function get_locked_pages(): array {
+    return ['users', 'permissions', 'settings', 'backup'];
+}
+
+/**
+ * Check if current user has permission for a given page key.
+ * - owner  → always true
+ * - admin  → always true
+ * - others → checks user_permissions table
+ */
+function has_permission(string $page): bool {
+    $user = current_user();
+    if (!$user || !$user['id']) return false;
+
+    // Owners and admins bypass all permission checks
+    if (in_array($user['role'], ['owner', 'admin'])) return true;
+
+    static $perm_cache = [];
+    $uid = (int)$user['id'];
+
+    if (!isset($perm_cache[$uid])) {
+        try {
+            $db   = DB::get();
+            $stmt = $db->prepare("SELECT page, granted FROM user_permissions WHERE user_id = ?");
+            $stmt->execute([$uid]);
+            $perm_cache[$uid] = [];
+            foreach ($stmt->fetchAll() as $r) {
+                $perm_cache[$uid][$r['page']] = (bool)$r['granted'];
+            }
+        } catch (Exception $e) {
+            // If table doesn't exist yet, fall back to deny
+            return false;
+        }
+    }
+
+    return $perm_cache[$uid][$page] ?? false;
+}
+
+/**
+ * Redirect to dashboard with denied message if user lacks permission.
+ * Use at the top of any page: require_permission('reports');
+ */
+function require_permission(string $page): void {
+    if (!has_permission($page)) {
+        flash(
+            LANG === 'ar'
+                ? 'ليس لديك صلاحية الوصول لهذه الصفحة'
+                : 'You do not have permission to access this page',
+            'error'
+        );
+        header('Location: /bangeen_pos/dashboard.php?lang=' . LANG . '&denied=1');
+        exit;
+    }
+}
+
+/**
+ * Load all permissions for a specific user as [page => bool].
+ * Used by the permissions manager page.
+ */
+function load_user_permissions(int $user_id): array {
+    try {
+        $db   = DB::get();
+        $stmt = $db->prepare("SELECT page, granted FROM user_permissions WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $perms = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $perms[$r['page']] = (bool)$r['granted'];
+        }
+        return $perms;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Save permissions for a user. Replaces all existing rows.
+ * $pages_granted = array of page keys that should be granted.
+ */
+function save_user_permissions(int $user_id, array $pages_granted, string $role): bool {
+    try {
+        $db = DB::get();
+        $all_pages    = array_keys(get_all_pages());
+        $locked_pages = get_locked_pages();
+
+        $db->prepare("DELETE FROM user_permissions WHERE user_id = ?")->execute([$user_id]);
+
+        $ins = $db->prepare("INSERT INTO user_permissions (user_id, page, granted) VALUES (?, ?, ?)");
+        foreach ($all_pages as $page) {
+            $is_locked = in_array($page, $locked_pages) && !in_array($role, ['admin','owner']);
+            $granted   = $is_locked ? 0 : (in_array($page, $pages_granted) ? 1 : 0);
+            $ins->execute([$user_id, $page, $granted]);
+        }
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function get_setting(string $key, string $default=''): string {
-    static $cache=[];
+function get_setting(string $key, string $default = ''): string {
+    static $cache = [];
     if (!isset($cache[$key])) {
-        $s=$_=DB::get()->prepare("SELECT value FROM settings WHERE key_name=?");
+        $s = DB::get()->prepare("SELECT value FROM settings WHERE key_name=?");
         $s->execute([$key]);
-        $r=$s->fetch();
-        $cache[$key]=$r?$r['value']:$default;
+        $r = $s->fetch();
+        $cache[$key] = $r ? $r['value'] : $default;
     }
     return $cache[$key];
 }
 
 function store_name(): string {
-    return LANG==='ar' ? get_setting('store_name_ar','بهنگین کریستال') : get_setting('store_name_en','Bangeen Crystal');
+    return LANG === 'ar'
+        ? get_setting('store_name_ar', 'بهنگین کریستال')
+        : get_setting('store_name_en', 'Bangeen Crystal');
 }
 
 function format_currency(float $amount): string {
-    return get_setting('currency_symbol','IQD').' '.number_format($amount,0,'.',',');
+    return get_setting('currency_symbol', 'IQD') . ' ' . number_format($amount, 0, '.', ',');
 }
 
-function json_response(array $data, int $code=200): void {
+function json_response(array $data, int $code = 200): void {
     http_response_code($code);
     header('Content-Type: application/json');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-function sanitize(string $s): string { return htmlspecialchars(trim($s),ENT_QUOTES,'UTF-8'); }
-
-function generate_invoice_number(): string {
-    return 'INV-'.date('Ymd').'-'.str_pad(rand(1,9999),4,'0',STR_PAD_LEFT);
+function sanitize(string $s): string {
+    return htmlspecialchars(trim($s), ENT_QUOTES, 'UTF-8');
 }
 
-function flash(string $msg, string $type='success'): void {
-    $_SESSION['flash'] = ['msg'=>$msg,'type'=>$type];
+function generate_invoice_number(): string {
+    $db = DB::get();
+    $db->exec("UPDATE counters SET value = value + 1 WHERE name = 'invoice_seq'");
+    $seq = (int)$db->query("SELECT value FROM counters WHERE name = 'invoice_seq'")->fetchColumn();
+    return (string)$seq;
+}
+
+function flash(string $msg, string $type = 'success'): void {
+    $_SESSION['flash'] = ['msg' => $msg, 'type' => $type];
 }
 
 function lang_switcher_url(string $target): string {
     $q = $_GET;
     $q['lang'] = $target;
-    return '?'.http_build_query($q);
+    return '?' . http_build_query($q);
 }

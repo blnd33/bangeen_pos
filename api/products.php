@@ -12,7 +12,7 @@ if ($cat)    { $where .= ' AND p.category_id=?'; $params[] = $cat; }
 if ($search) { $where .= ' AND (p.name_ar LIKE ? OR p.name_en LIKE ? OR p.barcode_text LIKE ?)'; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; }
 
 $stmt = DB::get()->prepare("
-    SELECT p.id, p.name_ar, p.name_en, p.price, p.stock_qty, 
+    SELECT p.id, p.name_ar, p.name_en, p.price, p.cost, p.stock_qty, 
            p.barcode_text, p.category_id, p.unit_ar, p.unit_en 
     FROM products p $where ORDER BY p.name_ar
 ");
@@ -27,6 +27,7 @@ foreach ($rows as $p) {
         'name_ar'     => $p['name_ar'],
         'name_en'     => $p['name_en'],
         'price'       => (float)$p['price'],
+        'cost'        => (float)$p['cost'],
         'stock_qty'   => (int)$p['stock_qty'],
         'barcode_text'=> $p['barcode_text'],
         'category_id' => $p['category_id'],

@@ -70,17 +70,33 @@ try {
 
     $db->commit();
 
+    // Load store settings for receipt
+    $settings_rows = $db->query("SELECT key_name, value FROM settings")->fetchAll();
+    $settings = [];
+    foreach ($settings_rows as $sr) { $settings[$sr['key_name']] = $sr['value']; }
+
     json_response([
-        'success'        => true,
-        'invoice'        => $invoice,
-        'sale_id'        => $sale_id,
-        'items'          => $items_out,
-        'subtotal'       => $sub,
-        'discount_total' => $disc,
-        'total'          => $total,
-        'payment_method' => $method,
-        'cash_tendered'  => $cash,
-        'change_given'   => $change,
+        'success'          => true,
+        'invoice'          => $invoice,
+        'sale_id'          => $sale_id,
+        'cashier'          => $user['name'],
+        'items'            => $items_out,
+        'subtotal'         => $sub,
+        'discount_total'   => $disc,
+        'tax'              => $tax,
+        'total'            => $total,
+        'payment_method'   => $method,
+        'cash_tendered'    => $cash,
+        'change_given'     => $change,
+        // Store info for receipt
+        'store_name_ar'    => $settings['store_name_ar']    ?? 'بهنگین کریستال',
+        'store_name_en'    => $settings['store_name_en']    ?? 'Bangeen Crystal',
+        'store_address_ar' => $settings['store_address_ar'] ?? '',
+        'store_address_en' => $settings['store_address_en'] ?? '',
+        'store_phone'      => $settings['store_phone']      ?? '',
+        'currency'         => $settings['currency']         ?? 'IQD',
+        'footer_ar'        => $settings['receipt_footer_ar'] ?? 'شكراً لزيارتكم',
+        'footer_en'        => $settings['receipt_footer_en'] ?? 'Thank you for your visit',
     ]);
 
 } catch (Exception $e) {

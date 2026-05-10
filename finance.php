@@ -38,7 +38,6 @@ if (isset($_POST['action'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
 
-    // ── Expenses CRUD ──
     if ($action === 'add_expense') {
         $cat   = $_POST['category']    ?? 'other';
         $dar   = trim($_POST['desc_ar'] ?? '');
@@ -69,8 +68,6 @@ if (isset($_POST['action'])) {
         echo json_encode(['success'=>$ok]);
         exit;
     }
-
-    // ── Debts CRUD ──
     if ($action === 'add_debt') {
         $type2 = $_POST['dtype']      ?? 'we_owe';
         $party = trim($_POST['party'] ?? '');
@@ -218,7 +215,6 @@ $exp_cat_icons = [
     'marketing'=>'fa-bullhorn','other'=>'fa-circle-dot',
 ];
 
-// CSV Export
 if (isset($_GET['export']) && $_GET['export'] === 'expenses') {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="expenses_'.$from.'_'.$to.'.csv"');
@@ -233,7 +229,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'expenses') {
 }
 ?>
 
-<!-- ── FINANCE PAGE STYLES ── -->
 <style>
 .fin-tabs{display:flex;gap:.4rem;margin-bottom:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.35rem;flex-wrap:wrap}
 .fin-tab{padding:.45rem 1rem;border-radius:8px;font-size:.84rem;font-weight:700;cursor:pointer;text-decoration:none;color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:.4rem;white-space:nowrap}
@@ -264,15 +259,15 @@ if (isset($_GET['export']) && $_GET['export'] === 'expenses') {
 .cat-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:6px;font-size:.75rem;font-weight:700;background:var(--surface2);color:var(--text2)}
 </style>
 
-<!-- ── TAB NAV ── -->
 <div class="fin-tabs">
   <?php
   $tabs = [
-    ['key'=>'sales',    'icon'=>'fa-chart-line',      'ar'=>'تقرير المبيعات',   'en'=>'Sales Report'],
-    ['key'=>'expenses', 'icon'=>'fa-money-bill-wave', 'ar'=>'المصروفات',        'en'=>'Expenses'],
-    ['key'=>'pl',       'icon'=>'fa-scale-balanced',  'ar'=>'الأرباح والخسائر','en'=>'P&L Statement'],
-    ['key'=>'debts',    'icon'=>'fa-handshake',       'ar'=>'الديون',           'en'=>'Debts'],
-    ['key'=>'cashflow', 'icon'=>'fa-water',           'ar'=>'التدفق النقدي',   'en'=>'Cash Flow'],
+    ['key'=>'sales',     'icon'=>'fa-chart-line',      'ar'=>'تقرير المبيعات',   'en'=>'Sales Report'],
+    ['key'=>'expenses',  'icon'=>'fa-money-bill-wave', 'ar'=>'المصروفات',        'en'=>'Expenses'],
+    ['key'=>'pl',        'icon'=>'fa-scale-balanced',  'ar'=>'الأرباح والخسائر','en'=>'P&L Statement'],
+    ['key'=>'debts',     'icon'=>'fa-handshake',       'ar'=>'الديون',           'en'=>'Debts'],
+    ['key'=>'cashflow',  'icon'=>'fa-water',           'ar'=>'التدفق النقدي',   'en'=>'Cash Flow'],
+    ['key'=>'inventory', 'icon'=>'fa-boxes-stacked',   'ar'=>'قيمة المخزون',    'en'=>'Inventory Value'],
   ];
   foreach ($tabs as $t):
     $active = $tab===$t['key'] ? 'active' : '';
@@ -283,7 +278,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'expenses') {
   <?php endforeach; ?>
 </div>
 
-<!-- ── DATE FILTER (shared) ── -->
 <?php
 $qk = $quick ?: 'month';
 $filter_base = "?tab={$tab}&type={$type}&lang=".LANG;
@@ -314,9 +308,7 @@ $filter_base = "?tab={$tab}&type={$type}&lang=".LANG;
   </form>
 </div>
 
-<!-- ════════════════ TAB: SALES ════════════════ -->
 <?php if ($tab === 'sales'): ?>
-
 <div class="kpi-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:rgba(196,146,42,.12);color:var(--brand)"><i class="fa fa-money-bill-wave"></i></div>
@@ -343,7 +335,6 @@ $filter_base = "?tab={$tab}&type={$type}&lang=".LANG;
     <div class="stat-sub"><?= LANG==='ar'?'الخصومات الممنوحة':'Discounts Given' ?></div>
   </div>
 </div>
-
 <div class="grid-2 gap-2 mb-2">
   <div class="card chart-card">
     <div class="card-title"><i class="fa fa-chart-area text-brand"></i> <?= LANG==='ar'?'مخطط الإيرادات':'Revenue Chart' ?></div>
@@ -363,57 +354,47 @@ $filter_base = "?tab={$tab}&type={$type}&lang=".LANG;
     </div>
   </div>
 </div>
-
 <div class="grid-2 gap-2">
   <div class="card" style="padding:0">
     <div style="padding:1rem 1.25rem .5rem;font-weight:700"><i class="fa fa-trophy text-brand"></i> <?= t('top_products') ?></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>#</th><th><?= t('product_name') ?></th><th><?= t('quantity') ?></th><th><?= t('total_sales') ?></th></tr></thead>
-        <tbody>
-        <?php if (empty($top_products)): ?>
-          <tr><td colspan="4" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
-        <?php endif; ?>
-        <?php foreach ($top_products as $i=>$p): ?>
-        <tr>
-          <td style="color:var(--brand);font-weight:800"><?= $i+1 ?></td>
-          <td><?= sanitize(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?></td>
-          <td class="mono fw-bold"><?= number_format((int)$p['qty']) ?></td>
-          <td class="text-brand fw-bold"><?= format_currency((float)$p['rev']) ?></td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th><?= t('product_name') ?></th><th><?= t('quantity') ?></th><th><?= t('total_sales') ?></th></tr></thead>
+      <tbody>
+      <?php if (empty($top_products)): ?><tr><td colspan="4" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr><?php endif; ?>
+      <?php foreach ($top_products as $i=>$p): ?>
+      <tr>
+        <td style="color:var(--brand);font-weight:800"><?= $i+1 ?></td>
+        <td><?= sanitize(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?></td>
+        <td class="mono fw-bold"><?= number_format((int)$p['qty']) ?></td>
+        <td class="text-brand fw-bold"><?= format_currency((float)$p['rev']) ?></td>
+      </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
   </div>
   <div class="card" style="padding:0">
     <div style="padding:1rem 1.25rem .5rem;font-weight:700"><i class="fa fa-table text-brand"></i> <?= LANG==='ar'?'بيانات الفترة':'Period Data' ?></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th><?= LANG==='ar'?'الفترة':'Period' ?></th>
-          <th><?= t('invoices') ?></th>
-          <th><?= t('total_sales') ?></th>
-          <th><?= t('avg_ticket') ?></th>
-        </tr></thead>
-        <tbody>
-        <?php if (empty($sales_rows)): ?>
-          <tr><td colspan="4" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
-        <?php endif; ?>
-        <?php foreach ($sales_rows as $r): ?>
-        <tr>
-          <td class="mono fw-bold"><?= sanitize($r['period']) ?></td>
-          <td><?= number_format((int)$r['invoices']) ?></td>
-          <td class="text-brand fw-bold"><?= format_currency((float)$r['revenue']) ?></td>
-          <td class="text-muted"><?= format_currency((float)$r['avg_ticket']) ?></td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th><?= LANG==='ar'?'الفترة':'Period' ?></th>
+        <th><?= t('invoices') ?></th>
+        <th><?= t('total_sales') ?></th>
+        <th><?= t('avg_ticket') ?></th>
+      </tr></thead>
+      <tbody>
+      <?php if (empty($sales_rows)): ?><tr><td colspan="4" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr><?php endif; ?>
+      <?php foreach ($sales_rows as $r): ?>
+      <tr>
+        <td class="mono fw-bold"><?= sanitize($r['period']) ?></td>
+        <td><?= number_format((int)$r['invoices']) ?></td>
+        <td class="text-brand fw-bold"><?= format_currency((float)$r['revenue']) ?></td>
+        <td class="text-muted"><?= format_currency((float)$r['avg_ticket']) ?></td>
+      </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
   </div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 const salesRows = <?= json_encode($sales_rows) ?>;
@@ -438,9 +419,7 @@ if (payRows.length) {
 }
 </script>
 
-<!-- ════════════════ TAB: EXPENSES ════════════════ -->
 <?php elseif ($tab === 'expenses'): ?>
-
 <div class="kpi-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:rgba(220,38,38,.12);color:var(--danger)"><i class="fa fa-money-bill-wave"></i></div>
@@ -467,7 +446,6 @@ if (payRows.length) {
     <div class="stat-sub"><?= LANG==='ar'?'إدخالات في الفترة':'Entries in Period' ?></div>
   </div>
 </div>
-
 <div class="grid-2 gap-2 mb-2">
   <div class="card">
     <div class="card-title"><i class="fa fa-chart-pie text-brand"></i> <?= LANG==='ar'?'توزيع حسب الفئة':'By Category' ?></div>
@@ -491,41 +469,35 @@ if (payRows.length) {
     <?php endforeach; endif; ?>
   </div>
 </div>
-
 <div class="card" style="padding:0">
   <div style="padding:1rem 1.25rem .5rem" class="flex-between">
     <span style="font-weight:700"><i class="fa fa-list-ul text-brand"></i> <?= LANG==='ar'?'قائمة المصروفات':'Expense List' ?></span>
     <button class="btn btn-primary btn-sm" onclick="openExpModal()"><i class="fa fa-plus"></i> <?= t('add_expense') ?></button>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th><?= t('date') ?></th><th><?= LANG==='ar'?'الفئة':'Category' ?></th>
-        <th><?= LANG==='ar'?'الوصف':'Description' ?></th><th><?= t('amount') ?></th>
-        <th><?= LANG==='ar'?'بواسطة':'By' ?></th><th><?= t('actions') ?></th>
-      </tr></thead>
-      <tbody>
-      <?php if (empty($expenses_rows)): ?>
-        <tr><td colspan="6" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
-      <?php endif; ?>
-      <?php foreach ($expenses_rows as $e): ?>
-      <tr id="exp-row-<?= $e['id'] ?>">
-        <td class="mono"><?= date('d/m/Y',strtotime($e['expense_date'])) ?></td>
-        <td><span class="cat-badge"><i class="fa <?= $exp_cat_icons[$e['category']]??'fa-circle-dot' ?>"></i> <?= sanitize($exp_cats[$e['category']]??$e['category']) ?></span></td>
-        <td><?= sanitize(LANG==='ar'?($e['description_ar']?:'—'):($e['description_en']?:$e['description_ar']?:'—')) ?></td>
-        <td class="fw-bold mono" style="color:var(--danger)"><?= format_currency((float)$e['amount']) ?></td>
-        <td class="text-muted" style="font-size:.8rem"><?= sanitize(LANG==='ar'?($e['full_name_ar']?:'—'):($e['full_name_en']?:$e['full_name_ar']?:'—')) ?></td>
-        <td>
-          <button class="btn btn-secondary btn-sm" onclick='editExp(<?= json_encode($e,JSON_UNESCAPED_UNICODE) ?>)'><i class="fa fa-pen"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="deleteExp(<?= $e['id'] ?>)"><i class="fa fa-trash"></i></button>
-        </td>
-      </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th><?= t('date') ?></th><th><?= LANG==='ar'?'الفئة':'Category' ?></th>
+      <th><?= LANG==='ar'?'الوصف':'Description' ?></th><th><?= t('amount') ?></th>
+      <th><?= LANG==='ar'?'بواسطة':'By' ?></th><th><?= t('actions') ?></th>
+    </tr></thead>
+    <tbody>
+    <?php if (empty($expenses_rows)): ?><tr><td colspan="6" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr><?php endif; ?>
+    <?php foreach ($expenses_rows as $e): ?>
+    <tr id="exp-row-<?= $e['id'] ?>">
+      <td class="mono"><?= date('d/m/Y',strtotime($e['expense_date'])) ?></td>
+      <td><span class="cat-badge"><i class="fa <?= $exp_cat_icons[$e['category']]??'fa-circle-dot' ?>"></i> <?= sanitize($exp_cats[$e['category']]??$e['category']) ?></span></td>
+      <td><?= sanitize(LANG==='ar'?($e['description_ar']?:'—'):($e['description_en']?:$e['description_ar']?:'—')) ?></td>
+      <td class="fw-bold mono" style="color:var(--danger)"><?= format_currency((float)$e['amount']) ?></td>
+      <td class="text-muted" style="font-size:.8rem"><?= sanitize(LANG==='ar'?($e['full_name_ar']?:'—'):($e['full_name_en']?:$e['full_name_ar']?:'—')) ?></td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick='editExp(<?= json_encode($e,JSON_UNESCAPED_UNICODE) ?>)'><i class="fa fa-pen"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="deleteExp(<?= $e['id'] ?>)"><i class="fa fa-trash"></i></button>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table></div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 const expCatData = <?= json_encode($exp_by_cat) ?>;
@@ -588,9 +560,7 @@ function deleteExp(id) {
 }
 </script>
 
-<!-- ════════════════ TAB: P&L ════════════════ -->
 <?php elseif ($tab === 'pl'): ?>
-
 <div class="kpi-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:rgba(196,146,42,.12);color:var(--brand)"><i class="fa fa-money-bill-wave"></i></div>
@@ -615,7 +585,6 @@ function deleteExp(id) {
     <div class="stat-sub"><?= number_format($net_margin,1) ?>% <?= LANG==='ar'?'هامش صافي':'net margin' ?></div>
   </div>
 </div>
-
 <div class="grid-2 gap-2 mb-2">
   <div class="card">
     <div class="card-title"><i class="fa fa-file-invoice text-brand"></i> <?= LANG==='ar'?'بيان الأرباح والخسائر':'Profit & Loss Statement' ?></div>
@@ -665,14 +634,12 @@ function deleteExp(id) {
     </div>
   </div>
 </div>
-
 <?php if (!empty($pl_trend)): ?>
 <div class="card">
   <div class="card-title"><i class="fa fa-chart-line text-brand"></i> <?= LANG==='ar'?'اتجاه الأداء الشهري':'Monthly Performance Trend' ?></div>
   <canvas id="plTrendChart" height="130"></canvas>
 </div>
 <?php endif; ?>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 const plData={revenue:<?= (float)$sales_totals['revenue'] ?>,cogs:<?= $cogs ?>,expenses:<?= $exp_total ?>,grossProfit:<?= $gross_profit ?>,netProfit:<?= $net_profit ?>};
@@ -695,9 +662,7 @@ new Chart(document.getElementById('plTrendChart'),{type:'line',
 <?php endif; ?>
 </script>
 
-<!-- ════════════════ TAB: DEBTS ════════════════ -->
 <?php elseif ($tab === 'debts'): ?>
-
 <div class="kpi-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:rgba(22,163,74,.12);color:var(--success)"><i class="fa fa-arrow-down"></i></div>
@@ -724,12 +689,10 @@ new Chart(document.getElementById('plTrendChart'),{type:'line',
     <div class="stat-sub"><?= LANG==='ar'?'تجاوزت تاريخ الاستحقاق':'Past due date' ?></div>
   </div>
 </div>
-
 <div class="flex-between mb-2">
   <span style="font-weight:700;font-size:1rem"><i class="fa fa-handshake text-brand"></i> <?= t('debts') ?></span>
   <button class="btn btn-primary btn-sm" onclick="openDebtModal()"><i class="fa fa-plus"></i> <?= t('add_debt') ?></button>
 </div>
-
 <div class="grid-2 gap-2">
   <div class="card" style="padding:0">
     <div style="padding:1rem 1.25rem .5rem">
@@ -757,7 +720,6 @@ new Chart(document.getElementById('plTrendChart'),{type:'line',
       </tbody>
     </table></div>
   </div>
-
   <div class="card" style="padding:0">
     <div style="padding:1rem 1.25rem .5rem">
       <span style="font-weight:700;color:var(--danger)"><i class="fa fa-arrow-up"></i> <?= LANG==='ar'?'نحن مدينون':'We Owe' ?></span>
@@ -785,7 +747,6 @@ new Chart(document.getElementById('plTrendChart'),{type:'line',
     </table></div>
   </div>
 </div>
-
 <?php
 function renderDebtStatus(string $s, string $lang): string {
     $map=['pending'=>['class'=>'badge-warning','ar'=>'قيد الانتظار','en'=>'Pending'],'partial'=>['class'=>'badge-info','ar'=>'جزئي','en'=>'Partial'],'paid'=>['class'=>'badge-success','ar'=>'مدفوع','en'=>'Paid'],'overdue'=>['class'=>'badge-danger','ar'=>'متأخر','en'=>'Overdue']];
@@ -793,7 +754,6 @@ function renderDebtStatus(string $s, string $lang): string {
     return "<span class=\"badge {$d['class']}\">{$d[$lang]}</span>";
 }
 ?>
-
 <script>
 let editingDebtId=null;
 const lang='<?= LANG ?>';
@@ -856,9 +816,7 @@ function markDebtPaid(id){
 }
 </script>
 
-<!-- ════════════════ TAB: CASH FLOW ════════════════ -->
 <?php elseif ($tab === 'cashflow'): ?>
-
 <div class="kpi-grid">
   <div class="stat-card">
     <div class="stat-icon" style="background:rgba(22,163,74,.12);color:var(--success)"><i class="fa fa-arrow-trend-up"></i></div>
@@ -885,44 +843,39 @@ function markDebtPaid(id){
     <div class="stat-sub"><?= LANG==='ar'?'صافي من الإيرادات':'Net of Revenue' ?></div>
   </div>
 </div>
-
 <div class="card chart-card mb-2">
   <div class="card-title"><i class="fa fa-water text-brand"></i> <?= LANG==='ar'?'مخطط التدفق النقدي':'Cash Flow Chart' ?></div>
   <canvas id="cfChart" height="180"></canvas>
 </div>
-
 <div class="card" style="padding:0">
   <div style="padding:1rem 1.25rem .5rem;font-weight:700"><i class="fa fa-table text-brand"></i> <?= LANG==='ar'?'تفاصيل التدفق النقدي':'Cash Flow Details' ?></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th><?= LANG==='ar'?'الفترة':'Period' ?></th><th><?= t('cash_in') ?></th><th><?= t('cash_out') ?></th><th><?= t('net_cash') ?></th><th><?= LANG==='ar'?'المؤشر':'Indicator' ?></th></tr></thead>
-      <tbody>
-      <?php if(empty($cf_rows)): ?><tr><td colspan="5" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr><?php endif; ?>
-      <?php foreach($cf_rows as $r): $pos=$r['net']>=0; ?>
-      <tr>
-        <td class="mono fw-bold"><?= sanitize($r['period']) ?></td>
-        <td class="fw-bold" style="color:var(--success)"><?= format_currency((float)$r['cash_in']) ?></td>
-        <td style="color:var(--danger)"><?= format_currency((float)$r['cash_out']) ?></td>
-        <td class="fw-bold" style="color:<?= $pos?'var(--success)':'var(--danger)' ?>"><?= format_currency(abs((float)$r['net'])) ?></td>
-        <td><?= $pos?"<span class=\"badge badge-success\"><i class=\"fa fa-arrow-up\"></i> ".(LANG==='ar'?'إيجابي':'Positive')."</span>":"<span class=\"badge badge-danger\"><i class=\"fa fa-arrow-down\"></i> ".(LANG==='ar'?'سلبي':'Negative')."</span>" ?></td>
+  <div class="table-wrap"><table>
+    <thead><tr><th><?= LANG==='ar'?'الفترة':'Period' ?></th><th><?= t('cash_in') ?></th><th><?= t('cash_out') ?></th><th><?= t('net_cash') ?></th><th><?= LANG==='ar'?'المؤشر':'Indicator' ?></th></tr></thead>
+    <tbody>
+    <?php if(empty($cf_rows)): ?><tr><td colspan="5" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr><?php endif; ?>
+    <?php foreach($cf_rows as $r): $pos=$r['net']>=0; ?>
+    <tr>
+      <td class="mono fw-bold"><?= sanitize($r['period']) ?></td>
+      <td class="fw-bold" style="color:var(--success)"><?= format_currency((float)$r['cash_in']) ?></td>
+      <td style="color:var(--danger)"><?= format_currency((float)$r['cash_out']) ?></td>
+      <td class="fw-bold" style="color:<?= $pos?'var(--success)':'var(--danger)' ?>"><?= format_currency(abs((float)$r['net'])) ?></td>
+      <td><?= $pos?"<span class=\"badge badge-success\"><i class=\"fa fa-arrow-up\"></i> ".(LANG==='ar'?'إيجابي':'Positive')."</span>":"<span class=\"badge badge-danger\"><i class=\"fa fa-arrow-down\"></i> ".(LANG==='ar'?'سلبي':'Negative')."</span>" ?></td>
+    </tr>
+    <?php endforeach; ?>
+    </tbody>
+    <?php if(!empty($cf_rows)): ?>
+    <tfoot>
+      <tr style="background:var(--surface2);font-weight:800">
+        <td><?= LANG==='ar'?'الإجمالي':'Total' ?></td>
+        <td style="color:var(--success)"><?= format_currency($total_cash_in) ?></td>
+        <td style="color:var(--danger)"><?= format_currency($total_cash_out) ?></td>
+        <td style="color:<?= $net_cash_flow>=0?'var(--success)':'var(--danger)' ?>"><?= format_currency($net_cash_flow) ?></td>
+        <td></td>
       </tr>
-      <?php endforeach; ?>
-      </tbody>
-      <?php if(!empty($cf_rows)): ?>
-      <tfoot>
-        <tr style="background:var(--surface2);font-weight:800">
-          <td><?= LANG==='ar'?'الإجمالي':'Total' ?></td>
-          <td style="color:var(--success)"><?= format_currency($total_cash_in) ?></td>
-          <td style="color:var(--danger)"><?= format_currency($total_cash_out) ?></td>
-          <td style="color:<?= $net_cash_flow>=0?'var(--success)':'var(--danger)' ?>"><?= format_currency($net_cash_flow) ?></td>
-          <td></td>
-        </tr>
-      </tfoot>
-      <?php endif; ?>
-    </table>
-  </div>
+    </tfoot>
+    <?php endif; ?>
+  </table></div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 const cfRows=<?= json_encode($cf_rows) ?>;
@@ -936,6 +889,100 @@ new Chart(document.getElementById('cfChart'),{type:'bar',
   options:{responsive:true,plugins:{legend:{labels:{color:'#5C4A3A'}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9C8A7A',font:{family:'monospace'}}},x:{grid:{display:false},ticks:{color:'#9C8A7A'}}}}
 });
 </script>
+
+<?php elseif ($tab === 'inventory'):
+  $inv_totals = $db->query("SELECT
+    SUM(stock_qty) as total_units,
+    SUM(stock_qty * cost) as total_cost_value,
+    SUM(stock_qty * price) as total_retail_value,
+    COUNT(*) as total_products,
+    COUNT(CASE WHEN stock_qty <= 0 THEN 1 END) as out_of_stock
+    FROM products WHERE is_active=1")->fetch();
+  $inv_products = $db->query("SELECT id, name_ar, name_en, stock_qty, cost, price,
+    (stock_qty * cost) as total_cost,
+    (stock_qty * price) as total_retail
+    FROM products WHERE is_active=1 ORDER BY (stock_qty * cost) DESC")->fetchAll();
+?>
+<div class="kpi-grid">
+  <div class="stat-card" style="cursor:pointer" onclick="document.getElementById('invProductTable').scrollIntoView({behavior:'smooth'})">
+    <div class="stat-icon" style="background:rgba(196,146,42,.12);color:var(--brand)"><i class="fa fa-boxes-stacked"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'القيمة الإجمالية بالتكلفة':'Total Inventory Cost' ?></div>
+    <div class="stat-value"><?= format_currency((float)($inv_totals['total_cost_value']??0)) ?></div>
+    <div class="stat-sub" style="color:var(--brand);font-weight:700"><?= LANG==='ar'?'انقر لعرض التفاصيل ↓':'Click to see details ↓' ?></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(22,163,74,.12);color:var(--success)"><i class="fa fa-tag"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'القيمة بسعر التجزئة':'Total Retail Value' ?></div>
+    <div class="stat-value" style="color:var(--success)"><?= format_currency((float)($inv_totals['total_retail_value']??0)) ?></div>
+    <div class="stat-sub"><?= LANG==='ar'?'القيمة البيعية للمخزون':'Potential Revenue' ?></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(14,165,233,.12);color:var(--info)"><i class="fa fa-cubes"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'إجمالي الوحدات':'Total Units' ?></div>
+    <div class="stat-value"><?= number_format((int)($inv_totals['total_units']??0)) ?></div>
+    <div class="stat-sub"><?= number_format((int)($inv_totals['total_products']??0)).' '.(LANG==='ar'?'منتج':'products') ?></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(220,38,38,.12);color:var(--danger)"><i class="fa fa-triangle-exclamation"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'نفذ من المخزون':'Out of Stock' ?></div>
+    <div class="stat-value" style="color:var(--danger)"><?= number_format((int)($inv_totals['out_of_stock']??0)) ?></div>
+    <div class="stat-sub"><?= LANG==='ar'?'منتج نفد مخزونه':'Products out of stock' ?></div>
+  </div>
+</div>
+<?php
+$margin_value = (float)($inv_totals['total_retail_value']??0) - (float)($inv_totals['total_cost_value']??0);
+$margin_pct = (float)($inv_totals['total_cost_value']??0) > 0 ? ($margin_value / (float)$inv_totals['total_cost_value'] * 100) : 0;
+?>
+<div class="card mb-2">
+  <div class="card-title"><i class="fa fa-chart-pie text-brand"></i> <?= LANG==='ar'?'ملخص قيمة المخزون':'Inventory Value Summary' ?></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+    <div class="pl-row sub"><span class="pl-label"><?= LANG==='ar'?'إجمالي التكلفة':'Total Cost' ?></span><span class="pl-val" style="color:var(--warning)"><?= format_currency((float)($inv_totals['total_cost_value']??0)) ?></span></div>
+    <div class="pl-row result positive"><span class="pl-label"><?= LANG==='ar'?'هامش الربح المتوقع':'Expected Margin' ?></span><span class="pl-val" style="color:var(--success)"><?= format_currency($margin_value) ?> <small>(<?= number_format($margin_pct,1) ?>%)</small></span></div>
+    <div class="pl-row header"><span class="pl-label"><?= LANG==='ar'?'القيمة البيعية':'Retail Value' ?></span><span class="pl-val" style="color:var(--brand)"><?= format_currency((float)($inv_totals['total_retail_value']??0)) ?></span></div>
+  </div>
+</div>
+<div class="card" id="invProductTable" style="padding:0">
+  <div style="padding:1rem 1.25rem .5rem;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+    <span><i class="fa fa-list text-brand"></i> <?= LANG==='ar'?'قائمة قيمة المنتجات':'Product Value List' ?></span>
+    <button class="btn btn-secondary btn-sm" onclick="window.print()"><i class="fa fa-print"></i> <?= LANG==='ar'?'طباعة':'Print' ?></button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>#</th><th><?= LANG==='ar'?'المنتج':'Product' ?></th>
+      <th><?= LANG==='ar'?'الكمية':'Qty' ?></th>
+      <th><?= LANG==='ar'?'تكلفة الوحدة':'Unit Cost' ?></th>
+      <th><?= LANG==='ar'?'سعر البيع':'Unit Price' ?></th>
+      <th><?= LANG==='ar'?'إجمالي التكلفة':'Total Cost' ?></th>
+      <th><?= LANG==='ar'?'إجمالي البيع':'Total Retail' ?></th>
+    </tr></thead>
+    <tbody>
+    <?php if (empty($inv_products)): ?>
+      <tr><td colspan="7" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
+    <?php else: foreach ($inv_products as $i=>$p): ?>
+    <tr <?= $p['stock_qty'] <= 0 ? 'style="opacity:.5"' : '' ?>>
+      <td style="color:var(--brand);font-weight:700"><?= $i+1 ?></td>
+      <td class="fw-bold"><?= sanitize(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?></td>
+      <td class="mono fw-bold <?= $p['stock_qty']<=0?'text-danger':($p['stock_qty']<=5?'text-warning':'') ?>"><?= number_format((int)$p['stock_qty']) ?></td>
+      <td class="mono"><?= format_currency((float)$p['cost']) ?></td>
+      <td class="mono" style="color:var(--brand)"><?= format_currency((float)$p['price']) ?></td>
+      <td class="mono fw-bold" style="color:var(--warning)"><?= format_currency((float)$p['total_cost']) ?></td>
+      <td class="mono fw-bold text-brand"><?= format_currency((float)$p['total_retail']) ?></td>
+    </tr>
+    <?php endforeach; endif; ?>
+    </tbody>
+    <?php if (!empty($inv_products)): ?>
+    <tfoot>
+      <tr style="background:var(--surface2);font-weight:800">
+        <td colspan="2"><?= LANG==='ar'?'الإجمالي':'TOTAL' ?></td>
+        <td class="mono"><?= number_format((int)($inv_totals['total_units']??0)) ?></td>
+        <td colspan="2"></td>
+        <td class="mono fw-bold" style="color:var(--warning)"><?= format_currency((float)($inv_totals['total_cost_value']??0)) ?></td>
+        <td class="mono fw-bold text-brand"><?= format_currency((float)($inv_totals['total_retail_value']??0)) ?></td>
+      </tr>
+    </tfoot>
+    <?php endif; ?>
+  </table></div>
+</div>
 
 <?php endif; ?>
 

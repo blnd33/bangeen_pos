@@ -14,7 +14,11 @@ try {
     $total_products = (int)$db->query("SELECT COUNT(*) FROM products WHERE is_active=1")->fetchColumn();
     $low_stock = (int)$db->query("SELECT COUNT(*) FROM products WHERE stock_qty <= low_stock_threshold AND is_active=1")->fetchColumn();
     $month_rev = (float)$db->query("SELECT COALESCE(SUM(total),0) FROM sales WHERE MONTH(created_at)=MONTH(NOW()) AND YEAR(created_at)=YEAR(NOW()) AND status='completed'")->fetchColumn();
-    $recent = $db->query("SELECT s.invoice_number, s.total, s.payment_method, s.created_at FROM sales s ORDER BY s.created_at DESC LIMIT 8")->fetchAll();
+    $dash_from = $_GET['dash_from'] ?? date('Y-m-d');
+    $dash_to   = $_GET['dash_to']   ?? date('Y-m-d');
+    $recent_stmt = $db->prepare("SELECT s.invoice_number, s.total, s.payment_method, s.created_at FROM sales s WHERE DATE(s.created_at) BETWEEN ? AND ? ORDER BY s.created_at DESC LIMIT 20");
+    $recent_stmt->execute([$dash_from, $dash_to]);
+    $recent = $recent_stmt->fetchAll();
     $top = $db->query("SELECT p.name_ar, p.name_en, SUM(si.quantity) as qty, SUM(si.subtotal) as rev FROM sale_items si JOIN products p ON si.product_id=p.id GROUP BY si.product_id ORDER BY qty DESC LIMIT 5")->fetchAll();
     $chart = $db->query("SELECT DATE(created_at) as d, COALESCE(SUM(total),0) as rev FROM sales WHERE created_at >= DATE_SUB(NOW(),INTERVAL 7 DAY) AND status='completed' GROUP BY DATE(created_at) ORDER BY d")->fetchAll();
 } catch (Exception $e) {
@@ -55,9 +59,15 @@ try {
 
 <div class="grid-2 gap-2">
   <div class="card">
-    <div class="card-title flex-between">
+    <div class="card-title flex-between" style="flex-wrap:wrap;gap:.5rem">
       <span><i class="fa fa-receipt text-brand"></i> <?= LANG==='ar'?'آخر المبيعات':'Recent Sales' ?></span>
-      <a href="http://localhost/bangeen_pos/sales.php?lang=<?= LANG ?>" class="btn btn-sm btn-secondary"><?= LANG==='ar'?'الكل':'All' ?></a>
+      <form method="GET" style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+        <input type="hidden" name="lang" value="<?= LANG ?>">
+        <input type="date" name="dash_from" value="<?= $dash_from ?? date('Y-m-d') ?>" style="width:130px;font-size:.78rem;padding:.2rem .4rem">
+        <input type="date" name="dash_to"   value="<?= $dash_to   ?? date('Y-m-d') ?>" style="width:130px;font-size:.78rem;padding:.2rem .4rem">
+        <button class="btn btn-sm btn-primary"><i class="fa fa-filter"></i></button>
+        <a href="http://localhost/bangeen_pos/sales.php?lang=<?= LANG ?>" class="btn btn-sm btn-secondary"><?= LANG==='ar'?'الكل':'All' ?></a>
+      </form>
     </div>
     <?php if (empty($recent)): ?>
       <p class="text-muted text-center" style="padding:2rem"><?= t('no_results') ?></p>

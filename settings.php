@@ -26,18 +26,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     header('Location: settings.php?lang='.LANG); exit;
 }
 
-// Load all settings into array
 $rows = $db->query("SELECT key_name,value FROM settings")->fetchAll();
-$all = [];
-foreach ($rows as $r) {
-    $all[$r['key_name']] = $r['value'];
-}
+$all  = [];
+foreach ($rows as $r) { $all[$r['key_name']] = $r['value']; }
 
 $page_title = t('settings');
 $active_nav = 'settings';
 require_once __DIR__ . '/includes/layout.php';
 
-// Helper — defined after layout to avoid conflict
 function sv($key, $default='') {
     global $all;
     return htmlspecialchars(isset($all[$key]) ? $all[$key] : $default, ENT_QUOTES, 'UTF-8');
@@ -47,8 +43,12 @@ function sv($key, $default='') {
 <form method="POST">
 <div style="display:flex;flex-direction:column;gap:1.25rem;max-width:860px">
 
+  <!-- Store Name -->
   <div class="card">
-    <div class="card-title"><i class="fa fa-store text-brand"></i> <?= LANG==='ar'?'معلومات المتجر':'Store Information' ?></div>
+    <div class="card-title">
+      <i class="fa fa-store text-brand"></i>
+      <?= LANG==='ar'?'معلومات المتجر':'Store Information' ?>
+    </div>
     <div class="form-row" style="grid-template-columns:1fr 1fr">
       <div class="form-group">
         <label><?= LANG==='ar'?'اسم المتجر (عربي)':'Store Name (Arabic)' ?></label>
@@ -59,24 +59,14 @@ function sv($key, $default='') {
         <input type="text" name="store_name_en" value="<?= sv('store_name_en','Bangeen Crystal') ?>" dir="ltr">
       </div>
     </div>
-    <div class="form-row" style="grid-template-columns:1fr 1fr">
-      <div class="form-group">
-        <label><?= LANG==='ar'?'العنوان (عربي)':'Address (Arabic)' ?></label>
-        <input type="text" name="store_address_ar" value="<?= sv('store_address_ar') ?>" dir="rtl">
-      </div>
-      <div class="form-group">
-        <label><?= LANG==='ar'?'العنوان (إنجليزي)':'Address (English)' ?></label>
-        <input type="text" name="store_address_en" value="<?= sv('store_address_en') ?>" dir="ltr">
-      </div>
-    </div>
-    <div class="form-group" style="max-width:320px">
-      <label><?= LANG==='ar'?'رقم الهاتف':'Phone Number' ?></label>
-      <input type="text" name="store_phone" value="<?= sv('store_phone') ?>" dir="ltr" placeholder="+964-750-000-0000">
-    </div>
   </div>
 
+  <!-- Currency & Tax -->
   <div class="card">
-    <div class="card-title"><i class="fa fa-coins text-brand"></i> <?= LANG==='ar'?'العملة والضريبة':'Currency & Tax' ?></div>
+    <div class="card-title">
+      <i class="fa fa-coins text-brand"></i>
+      <?= LANG==='ar'?'العملة والضريبة':'Currency & Tax' ?>
+    </div>
     <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
       <div class="form-group">
         <label><?= LANG==='ar'?'رمز العملة':'Currency Code' ?></label>
@@ -93,22 +83,70 @@ function sv($key, $default='') {
     </div>
   </div>
 
+  <!-- Receipt Settings -->
   <div class="card">
-    <div class="card-title"><i class="fa fa-receipt text-brand"></i> <?= LANG==='ar'?'نص الإيصال':'Receipt Footer' ?></div>
+    <div class="card-title">
+      <i class="fa fa-receipt text-brand"></i>
+      <?= LANG==='ar'?'إعدادات الإيصال':'Receipt Settings' ?>
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-bottom:1.2rem;font-size:.82rem;color:var(--muted)">
+      <i class="fa fa-circle-info text-brand"></i>
+      <?= LANG==='ar'
+        ?'شعار بهنگین کریستال يظهر تلقائياً في أعلى كل إيصال. أضف العنوان والهاتف أدناه.'
+        :'The Bangeen Crystal logo appears automatically at the top of every receipt. Add address and phone below.' ?>
+    </div>
+
+    <!-- Footer text -->
     <div class="form-row" style="grid-template-columns:1fr 1fr">
       <div class="form-group">
-        <label><?= LANG==='ar'?'ذيل الإيصال (عربي)':'Footer (Arabic)' ?></label>
-        <input type="text" name="receipt_footer_ar" value="<?= sv('receipt_footer_ar','شكراً لزيارتكم') ?>" dir="rtl">
+        <label><?= LANG==='ar'?'نص التذييل — عربي':'Footer Text — Arabic' ?></label>
+        <input type="text" name="receipt_footer_ar"
+          value="<?= sv('receipt_footer_ar','شكراً لزيارتكم') ?>"
+          dir="rtl" placeholder="شكراً لزيارتكم">
       </div>
       <div class="form-group">
-        <label><?= LANG==='ar'?'ذيل الإيصال (إنجليزي)':'Footer (English)' ?></label>
-        <input type="text" name="receipt_footer_en" value="<?= sv('receipt_footer_en','Thank you for your visit') ?>" dir="ltr">
+        <label><?= LANG==='ar'?'نص التذييل — إنجليزي':'Footer Text — English' ?></label>
+        <input type="text" name="receipt_footer_en"
+          value="<?= sv('receipt_footer_en','Thank you for your visit') ?>"
+          dir="ltr" placeholder="Thank you for your visit">
       </div>
+    </div>
+
+    <!-- Address -->
+    <div class="form-row" style="grid-template-columns:1fr 1fr">
+      <div class="form-group">
+        <label><?= LANG==='ar'?'عنوان المتجر — عربي (يطبع في الإيصال)':'Store Address — Arabic (printed on receipt)' ?></label>
+        <input type="text" name="store_address_ar"
+          value="<?= sv('store_address_ar') ?>"
+          dir="rtl" placeholder="دهوك، إقليم كردستان العراق">
+      </div>
+      <div class="form-group">
+        <label><?= LANG==='ar'?'عنوان المتجر — إنجليزي (يطبع في الإيصال)':'Store Address — English (printed on receipt)' ?></label>
+        <input type="text" name="store_address_en"
+          value="<?= sv('store_address_en') ?>"
+          dir="ltr" placeholder="Duhok, Kurdistan Region, Iraq">
+      </div>
+    </div>
+
+    <!-- Phone -->
+    <div class="form-group" style="max-width:320px">
+      <label><?= LANG==='ar'?'رقم الهاتف (يطبع في الإيصال)':'Phone Number (printed on receipt)' ?></label>
+      <input type="text" name="store_phone"
+        value="<?= sv('store_phone') ?>"
+        dir="ltr" placeholder="+964-750-730-8005">
+      <small style="color:var(--muted);font-size:.72rem">
+        <?= LANG==='ar'?'مثال: +964-750-730-8005':'Example: +964-750-730-8005' ?>
+      </small>
     </div>
   </div>
 
+  <!-- System Settings -->
   <div class="card">
-    <div class="card-title"><i class="fa fa-gear text-brand"></i> <?= LANG==='ar'?'إعدادات النظام':'System Settings' ?></div>
+    <div class="card-title">
+      <i class="fa fa-gear text-brand"></i>
+      <?= LANG==='ar'?'إعدادات النظام':'System Settings' ?>
+    </div>
     <div class="form-row" style="grid-template-columns:1fr 1fr">
       <div class="form-group">
         <label><?= LANG==='ar'?'حد المخزون المنخفض':'Low Stock Threshold' ?></label>
@@ -124,8 +162,12 @@ function sv($key, $default='') {
     </div>
   </div>
 
+  <!-- Change Password -->
   <div class="card">
-    <div class="card-title"><i class="fa fa-lock text-brand"></i> <?= LANG==='ar'?'تغيير كلمة المرور':'Change My Password' ?></div>
+    <div class="card-title">
+      <i class="fa fa-lock text-brand"></i>
+      <?= LANG==='ar'?'تغيير كلمة المرور':'Change My Password' ?>
+    </div>
     <div class="form-group" style="max-width:320px">
       <label><?= LANG==='ar'?'كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)':'New Password (leave blank to keep current)' ?></label>
       <input type="password" name="new_password" dir="ltr" autocomplete="new-password" placeholder="••••••••">
@@ -134,7 +176,8 @@ function sv($key, $default='') {
 
   <div>
     <button type="submit" class="btn btn-primary btn-lg">
-      <i class="fa fa-save"></i> <?= LANG==='ar'?'حفظ الإعدادات':'Save Settings' ?>
+      <i class="fa fa-save"></i>
+      <?= LANG==='ar'?'حفظ الإعدادات':'Save Settings' ?>
     </button>
   </div>
 

@@ -1,6 +1,13 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
-require_role('admin','manager');
+$me = current_user();
+
+// Only owner and admin can access this page
+if (!$me || !in_array($me['role'], ['admin','owner'])) {
+    header('Location: dashboard.php?lang=' . LANG . '&denied=1');
+    exit;
+}
+
 $db = DB::get();
 
 if ($_SERVER['REQUEST_METHOD']==='POST') {
@@ -35,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     if ($action==='delete') {
         $id = (int)$_POST['id'];
-        if ($id === (int)(current_user()['id'])) { flash(LANG==='ar'?'لا يمكنك حذف حسابك الخاص':'Cannot delete your own account','error'); }
+        if ($id === (int)($me['id'])) { flash(LANG==='ar'?'لا يمكنك حذف حسابك الخاص':'Cannot delete your own account','error'); }
         else { $db->prepare("DELETE FROM users WHERE id=?")->execute([$id]); flash(LANG==='ar'?'تم حذف المستخدم':'User deleted','warning'); }
         header('Location: users.php?lang='.LANG); exit;
     }
@@ -48,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 $users = $db->query("SELECT * FROM users ORDER BY role, full_name_ar")->fetchAll();
-$me = current_user();
 
 $page_title = t('users');
 $active_nav = 'users';
@@ -57,9 +63,14 @@ require_once __DIR__ . '/includes/layout.php';
 
 <div class="flex-between mb-2">
   <h2 style="font-size:1rem;font-weight:700"><?= t('users') ?></h2>
-  <button class="btn btn-primary" onclick="resetForm();openModal('userModal')">
-    <i class="fa fa-user-plus"></i> <?= LANG==='ar'?'مستخدم جديد':'New User' ?>
-  </button>
+  <div class="flex gap-1">
+    <a href="permissions.php?lang=<?= LANG ?>" class="btn btn-secondary">
+      <i class="fa fa-shield-halved"></i> <?= LANG==='ar'?'إدارة الصلاحيات':'Manage Permissions' ?>
+    </a>
+    <button class="btn btn-primary" onclick="resetForm();openModal('userModal')">
+      <i class="fa fa-user-plus"></i> <?= LANG==='ar'?'مستخدم جديد':'New User' ?>
+    </button>
+  </div>
 </div>
 
 <div class="card" style="padding:0">
@@ -75,9 +86,11 @@ require_once __DIR__ . '/includes/layout.php';
       </tr></thead>
       <tbody>
       <?php foreach ($users as $u): ?>
-      <?php $role_colors = ['admin'=>'badge-danger','manager'=>'badge-warning','cashier'=>'badge-info']; ?>
-      <?php $role_labels_ar = ['admin'=>'مدير النظام','manager'=>'مدير','cashier'=>'كاشير']; ?>
-      <?php $role_labels_en = ['admin'=>'Admin','manager'=>'Manager','cashier'=>'Cashier']; ?>
+      <?php
+        $role_colors  = ['owner'=>'badge-danger','admin'=>'badge-danger','manager'=>'badge-warning','cashier'=>'badge-info'];
+        $role_labels_ar = ['owner'=>'مالك','admin'=>'مدير النظام','manager'=>'مدير','cashier'=>'كاشير'];
+        $role_labels_en = ['owner'=>'Owner','admin'=>'Admin','manager'=>'Manager','cashier'=>'Cashier'];
+      ?>
       <tr>
         <td class="mono text-muted" style="font-size:.78rem"><?= $u['id'] ?></td>
         <td>
@@ -164,8 +177,9 @@ require_once __DIR__ . '/includes/layout.php';
           <select name="role" id="u_role">
             <option value="cashier"><?= LANG==='ar'?'كاشير':'Cashier' ?></option>
             <option value="manager"><?= LANG==='ar'?'مدير':'Manager' ?></option>
-            <?php if ($me['role']==='admin'): ?>
             <option value="admin"><?= LANG==='ar'?'مدير النظام':'Admin' ?></option>
+            <?php if ($me['role']==='owner'): ?>
+            <option value="owner"><?= LANG==='ar'?'مالك':'Owner' ?></option>
             <?php endif; ?>
           </select>
         </div>
@@ -173,7 +187,7 @@ require_once __DIR__ . '/includes/layout.php';
 
       <div class="form-row mb-1" style="grid-template-columns:1fr 1fr">
         <div class="form-group">
-          <label><?= t('password') ?> <span id="passHint" class="text-muted" style="font-size:.7rem">(<?= LANG==='ar'?'اتركه فارغاً للإبقاء':'leave blank to keep' ?>)</span></label>
+          <label><?= t('password') ?> <span id="passHint" class="text-muted" style="font-size:.7rem;display:none">(<?= LANG==='ar'?'اتركه فارغاً للإبقاء':'leave blank to keep' ?>)</span></label>
           <input type="password" name="password" id="u_password" dir="ltr" placeholder="••••••••">
         </div>
         <div class="form-group" style="justify-content:center">

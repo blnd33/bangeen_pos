@@ -32,6 +32,30 @@ $totals = $db->prepare("SELECT COUNT(*) as invoices, COALESCE(SUM(total),0) as r
 $totals->execute([$from,$to]);
 $totals = $totals->fetch();
 
+// Daily detailed sold items report
+$daily_items = $db->prepare("
+  SELECT
+    p.name_ar, p.name_en,
+    SUM(si.quantity) as qty_sold,
+    p.cost as unit_cost,
+    AVG(si.unit_price) as avg_price,
+    SUM(si.subtotal) as total_before_discount,
+    SUM(CASE WHEN si.discount_pct > 0 THEN si.unit_price * si.quantity * si.discount_pct / 100 ELSE 0 END) as total_discount,
+    SUM(si.subtotal) as final_total
+  FROM sale_items si
+  JOIN products p ON si.product_id = p.id
+  JOIN sales s ON si.sale_id = s.id
+  WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.status='completed'
+  GROUP BY si.product_id, p.name_ar, p.name_en, p.cost
+  ORDER BY final_total DESC
+");
+$daily_items->execute([$from, $to]);
+$daily_items = $daily_items->fetchAll();
+
+$daily_grand_total = array_sum(array_column($daily_items, 'final_total'));
+$daily_total_discount = array_sum(array_column($daily_items, 'total_discount'));
+$daily_total_cost = array_sum(array_map(fn($r)=>$r['unit_cost']*$r['qty_sold'], $daily_items));
+
 // CSV Export
 if ($export) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -145,6 +169,96 @@ if ($export) {
     </table>
   </div>
 </div>
+
+<!-- Daily Sold Report -->
+<div class="card mt-2" id="dailySoldReport" style="padding:0">
+  <div style="padding:1rem 1.25rem .5rem;font-weight:700;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+    <span style="font-size:1rem"><i class="fa fa-file-invoice text-brand"></i>
+      <?= LANG==='ar'?'تقرير المبيعات التفصيلي':'Detailed Sold Report' ?>
+      <span class="text-muted" style="font-size:.8rem;margin-<?= ALIGN_START ?>:.5rem">(<?= $from ?> → <?= $to ?>)</span>
+    </span>
+    <button class="btn btn-primary btn-sm" onclick="printDailySoldReport()"><i class="fa fa-print"></i> <?= LANG==='ar'?'طباعة التقرير':'Print Report' ?></button>
+  </div>
+  <div class="table-wrap">
+    <table id="dailySoldTable">
+      <thead><tr>
+        <th>#</th>
+        <th><?= LANG==='ar'?'المنتج':'Product' ?></th>
+        <th><?= LANG==='ar'?'الكمية المباعة':'Qty Sold' ?></th>
+        <th><?= LANG==='ar'?'تكلفة الوحدة':'Unit Cost' ?></th>
+        <th><?= LANG==='ar'?'متوسط سعر البيع':'Avg Sell Price' ?></th>
+        <th><?= LANG==='ar'?'الخصم':'Discount' ?></th>
+        <th><?= LANG==='ar'?'الإجمالي النهائي':'Final Total' ?></th>
+      </tr></thead>
+      <tbody>
+      <?php if (empty($daily_items)): ?>
+        <tr><td colspan="7" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
+      <?php else: foreach ($daily_items as $i=>$r): ?>
+      <tr>
+        <td style="color:var(--brand);font-weight:700"><?= $i+1 ?></td>
+        <td class="fw-bold"><?= sanitize(LANG==='ar'?$r['name_ar']:($r['name_en']?:$r['name_ar'])) ?></td>
+        <td class="mono fw-bold"><?= number_format((int)$r['qty_sold']) ?></td>
+        <td class="mono text-muted"><?= format_currency((float)$r['unit_cost']) ?></td>
+        <td class="mono" style="color:var(--brand)"><?= format_currency((float)$r['avg_price']) ?></td>
+        <td class="mono" style="color:var(--danger)"><?= $r['total_discount']>0 ? '- '.format_currency((float)$r['total_discount']) : '—' ?></td>
+        <td class="mono fw-bold text-brand"><?= format_currency((float)$r['final_total']) ?></td>
+      </tr>
+      <?php endforeach; endif; ?>
+      </tbody>
+      <?php if (!empty($daily_items)): ?>
+      <tfoot>
+        <tr style="background:var(--surface2);font-weight:800;font-size:.9rem">
+          <td colspan="2"><?= LANG==='ar'?'الإجمالي':'TOTAL' ?></td>
+          <td class="mono"><?= number_format(array_sum(array_column($daily_items,'qty_sold'))) ?></td>
+          <td class="mono text-muted"><?= format_currency($daily_total_cost) ?></td>
+          <td></td>
+          <td class="mono" style="color:var(--danger)"><?= $daily_total_discount>0 ? '- '.format_currency($daily_total_discount) : '—' ?></td>
+          <td class="mono fw-bold text-brand" style="font-size:1rem"><?= format_currency($daily_grand_total) ?></td>
+        </tr>
+      </tfoot>
+      <?php endif; ?>
+    </table>
+  </div>
+</div>
+
+<script>
+function printDailySoldReport() {
+  const lang = '<?= LANG ?>';
+  const dir  = '<?= DIR ?>';
+  const from = '<?= $from ?>';
+  const to   = '<?= $to ?>';
+  const currency = '<?= get_setting("currency_symbol","IQD") ?>';
+  const storeName = '<?= store_name() ?>';
+  const table = document.getElementById('dailySoldTable').outerHTML;
+  const title = lang==='ar' ? 'تقرير المبيعات التفصيلي' : 'Detailed Sales Report';
+  const period = lang==='ar' ? `الفترة: ${from} — ${to}` : `Period: ${from} — ${to}`;
+  const grandTotal = '<?= format_currency($daily_grand_total) ?>';
+  const html = `<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head>
+    <meta charset="UTF-8"><title>${title}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Tajawal','Arial',sans-serif;font-size:13px;padding:20px;color:#000;direction:${dir}}
+      h2{text-align:center;margin-bottom:4px;font-size:20px}
+      .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th{background:#1C1410;color:#fff;padding:7px;text-align:${dir==='rtl'?'right':'left'};font-size:12px}
+      td{padding:6px 7px;border-bottom:1px solid #ddd;font-size:12px}
+      tfoot td{background:#f5f0eb;font-weight:800;border-top:2px solid #000}
+      tr:nth-child(even){background:#fafafa}
+      .grand-total{text-align:center;margin-top:15px;font-size:18px;font-weight:900;border:2px solid #C4922A;padding:10px;border-radius:8px;background:rgba(196,146,42,.08)}
+      @media print{@page{margin:10mm};button{display:none}}
+    </style>
+  </head><body>
+    <h2>${storeName}</h2>
+    <div class="sub">${title}<br>${period}</div>
+    ${table}
+    <div class="grand-total">${lang==='ar'?'الإجمالي الكلي للفترة':'Grand Total for Period'}: ${grandTotal}</div>
+    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
+  </body></html>`;
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write(html); w.document.close();
+}
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
