@@ -56,6 +56,7 @@ $daily_grand_total = array_sum(array_column($daily_items, 'final_total'));
 $daily_total_discount = array_sum(array_column($daily_items, 'total_discount'));
 $daily_total_cost = array_sum(array_map(fn($r)=>$r['unit_cost']*$r['qty_sold'], $daily_items));
 
+<<<<<<< HEAD
 // ── Category POS sales (catpos.php — product_id IS NULL) ──
 $cat_sales_stmt = $db->prepare("
     SELECT si.product_name_ar AS cat_ar, si.product_name_en AS cat_en,
@@ -75,6 +76,8 @@ $cat_gross_total    = array_sum(array_column($cat_sales, 'gross'));
 $cat_discount_total = array_sum(array_column($cat_sales, 'item_discount'));
 $cat_net_total      = array_sum(array_column($cat_sales, 'net'));
 
+=======
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
 // CSV Export
 if ($export) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -321,6 +324,7 @@ new Chart(document.getElementById('reportChart').getContext('2d'),{
 });
 </script>
 
+<<<<<<< HEAD
 <!-- ── Category POS Sales breakdown ─────────────────────────── -->
 <div class="card" style="margin-top:1rem">
   <div class="card-title">
@@ -400,3 +404,6 @@ new Chart(document.getElementById('reportChart').getContext('2d'),{
 </div>
 
 <?php require_once __DIR__ . '/includes/layout_end.php'; ?>
+=======
+<?php require_once __DIR__ . '/includes/layout_end.php'; ?>
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4

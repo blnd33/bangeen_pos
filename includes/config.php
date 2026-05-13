@@ -235,7 +235,10 @@ function get_all_pages(): array {
     return [
         'dashboard'     => ['icon'=>'fa-gauge',            'ar'=>'لوحة التحكم',         'en'=>'Dashboard'],
         'pos'           => ['icon'=>'fa-cash-register',    'ar'=>'نقطة البيع',          'en'=>'POS / Sales'],
+<<<<<<< HEAD
         'catpos'        => ['icon'=>'fa-tags',              'ar'=>'بيع الفئات',          'en'=>'Category POS'],
+=======
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
         'products'      => ['icon'=>'fa-box',              'ar'=>'المنتجات',             'en'=>'Products'],
         'categories'    => ['icon'=>'fa-tags',             'ar'=>'الفئات',              'en'=>'Categories'],
         'suppliers'     => ['icon'=>'fa-truck',            'ar'=>'الموردون',             'en'=>'Suppliers'],

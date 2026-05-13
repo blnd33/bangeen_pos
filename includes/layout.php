@@ -19,7 +19,10 @@ unset($_SESSION['flash']);
 $nav_items = [
     ['key' => 'dashboard',     'icon' => 'fa-gauge-high',     'href' => 'dashboard.php'],
     ['key' => 'pos',           'icon' => 'fa-cash-register',  'href' => 'pos.php'],
+<<<<<<< HEAD
     ['key' => 'catpos',        'icon' => 'fa-tags',           'href' => 'catpos.php'],
+=======
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
     ['sep' => t('products')],
     ['key' => 'products',      'icon' => 'fa-box-open',       'href' => 'products.php'],
     ['key' => 'categories',    'icon' => 'fa-tags',           'href' => 'categories.php'],
@@ -45,7 +48,11 @@ $nav_items = [
 <title><?= sanitize($page_title ?? t('dashboard')) ?> — <?= sanitize($sname) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Raleway:wght@400;500;700;800&display=swap" rel="stylesheet">
+<<<<<<< HEAD
 <link href="/bangeen_pos/lib/font-awesome/css/all.min.css" rel="stylesheet">
+=======
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -373,4 +380,8 @@ tr:hover td{background:var(--surface2)}
      Every page ends with: require_once __DIR__ . '/includes/layout_end.php';
      which closes the .page-content div, .main-wrap div,
      renders the toast container, and outputs the JS clock.
+<<<<<<< HEAD
 ──────────────────────────────────────────────────────────── --> 
+=======
+──────────────────────────────────────────────────────────── -->
+>>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
