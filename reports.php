@@ -1,0 +1,501 @@
+<?php
+require_once __DIR__ . '/includes/config.php';
+$page_title = t('reports');
+$active_nav = 'reports';
+require_once __DIR__ . '/includes/layout.php';
+require_role('admin','manager');
+$db = DB::get();
+
+$type   = $_GET['type'] ?? 'daily';
+$export = isset($_GET['export']);
+$quick  = $_GET['quick'] ?? '';
+
+// Quick date presets
+switch ($quick) {
+    case 'today':
+        $from = date('Y-m-d');
+        $to   = date('Y-m-d');
+        break;
+    case 'week':
+        $from = date('Y-m-d', strtotime('monday this week'));
+        $to   = date('Y-m-d');
+        break;
+    case 'month':
+        $from = date('Y-m-01');
+        $to   = date('Y-m-d');
+        break;
+    case 'year':
+        $from = date('Y-01-01');
+        $to   = date('Y-m-d');
+        break;
+    case 'last_month':
+        $from = date('Y-m-01', strtotime('first day of last month'));
+        $to   = date('Y-m-t', strtotime('last day of last month'));
+        break;
+    default:
+        $from = $_GET['from'] ?? date('Y-m-01');
+        $to   = $_GET['to']   ?? date('Y-m-d');
+        break;
+}
+
+// Build SQL grouping
+switch ($type) {
+    case 'monthly': $group = "DATE_FORMAT(created_at,'%Y-%m')"; $label = "DATE_FORMAT(created_at,'%Y-%m')"; break;
+    case 'yearly':  $group = "YEAR(created_at)";                  $label = "YEAR(created_at)";                break;
+    default:        $group = "DATE(created_at)";                   $label = "DATE(created_at)";                break;
+}
+
+$stmt = $db->prepare("SELECT $label as period, COUNT(*) as invoices, SUM(total) as revenue, AVG(total) as avg_ticket FROM sales WHERE DATE(created_at) BETWEEN ? AND ? AND status='completed' GROUP BY $group ORDER BY period ASC");
+$stmt->execute([$from,$to]);
+$rows = $stmt->fetchAll();
+
+// Top products
+$top = $db->prepare("SELECT p.name_ar,p.name_en,SUM(si.quantity) as qty,SUM(si.subtotal) as rev FROM sale_items si JOIN products p ON si.product_id=p.id JOIN sales s ON si.sale_id=s.id WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.status='completed' GROUP BY si.product_id ORDER BY qty DESC LIMIT 10");
+$top->execute([$from,$to]);
+$top_products = $top->fetchAll();
+
+// Summary
+$totals = $db->prepare("SELECT COUNT(*) as invoices, COALESCE(SUM(total),0) as revenue, COALESCE(AVG(total),0) as avg_ticket FROM sales WHERE DATE(created_at) BETWEEN ? AND ? AND status='completed'");
+$totals->execute([$from,$to]);
+$totals = $totals->fetch();
+
+// Daily detailed sold items report
+$daily_items = $db->prepare("
+  SELECT
+    p.name_ar, p.name_en,
+    SUM(si.quantity) as qty_sold,
+    p.cost as unit_cost,
+    AVG(si.unit_price) as avg_price,
+    SUM(si.subtotal) as total_before_discount,
+    SUM(CASE WHEN si.discount_pct > 0 THEN si.unit_price * si.quantity * si.discount_pct / 100 ELSE 0 END) as total_discount,
+    SUM(si.subtotal) as final_total
+  FROM sale_items si
+  JOIN products p ON si.product_id = p.id
+  JOIN sales s ON si.sale_id = s.id
+  WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.status='completed'
+  GROUP BY si.product_id, p.name_ar, p.name_en, p.cost
+  ORDER BY final_total DESC
+");
+$daily_items->execute([$from, $to]);
+$daily_items = $daily_items->fetchAll();
+
+$daily_grand_total = array_sum(array_column($daily_items, 'final_total'));
+$daily_total_discount = array_sum(array_column($daily_items, 'total_discount'));
+$daily_total_cost = array_sum(array_map(fn($r)=>$r['unit_cost']*$r['qty_sold'], $daily_items));
+
+// ── Category POS sales (catpos.php — product_id IS NULL OR barcode like CAT-%) ──
+$cat_sales_stmt = $db->prepare("
+    SELECT si.product_name_ar AS cat_ar, si.product_name_en AS cat_en,
+           COUNT(*) AS sale_rows,
+           SUM(si.unit_price) AS gross,
+           SUM(CASE WHEN si.unit_price > si.subtotal THEN si.unit_price - si.subtotal ELSE 0 END) AS item_discount,
+           SUM(si.subtotal) AS net
+    FROM sale_items si
+    JOIN sales s ON si.sale_id = s.id
+    WHERE (si.product_id IS NULL OR si.barcode_text LIKE 'CAT-%')
+      AND DATE(s.created_at) BETWEEN ? AND ? AND s.status='completed'
+    GROUP BY si.product_name_en, si.product_name_ar ORDER BY net DESC
+");
+$cat_sales_stmt->execute([$from, $to]);
+$cat_sales = $cat_sales_stmt->fetchAll();
+$cat_gross_total    = array_sum(array_column($cat_sales, 'gross'));
+$cat_discount_total = array_sum(array_column($cat_sales, 'item_discount'));
+$cat_net_total      = array_sum(array_column($cat_sales, 'net'));
+$currency           = get_setting('currency_symbol', 'IQD');
+
+// CSV Export
+if ($export) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="report_'.$from.'_'.$to.'.csv"');
+    echo "\xEF\xBB\xBF"; // BOM for Excel UTF-8
+    echo LANG==='ar' ? "الفترة,الفواتير,الإيراد,متوسط الفاتورة\n" : "Period,Invoices,Revenue,Avg Ticket\n";
+    foreach ($rows as $r) {
+        echo "{$r['period']},{$r['invoices']},{$r['revenue']},{$r['avg_ticket']}\n";
+    }
+    exit;
+}
+?>
+
+<!-- Filters -->
+<div class="card mb-2" style="padding:.9rem">
+  <form method="GET" id="reportForm">
+    <input type="hidden" name="lang" value="<?= LANG ?>">
+    <input type="hidden" name="quick" id="quickInput" value="<?= htmlspecialchars($quick) ?>">
+
+    <!-- Quick presets -->
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <?php
+        $presets = [
+          'today'      => LANG==='ar'?'اليوم':'Today',
+          'week'       => LANG==='ar'?'هذا الأسبوع':'This Week',
+          'month'      => LANG==='ar'?'هذا الشهر':'This Month',
+          'last_month' => LANG==='ar'?'الشهر الماضي':'Last Month',
+          'year'       => LANG==='ar'?'هذا العام':'This Year',
+        ];
+        foreach ($presets as $key => $label):
+          $active = $quick === $key ? 'background:var(--brand);color:#fff;border-color:var(--brand)' : '';
+      ?>
+      <button type="button"
+              style="padding:.35rem .8rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:.8rem;font-weight:700;<?= $active ?>"
+              onclick="setQuick('<?= $key ?>')">
+        <?= $label ?>
+      </button>
+      <?php endforeach; ?>
+    </div>
+
+    <!-- Grouping + Date range + Filter button -->
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <!-- Grouping -->
+      <select name="type" style="width:130px;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:.84rem">
+        <option value="daily"   <?= $type==='daily'  ?'selected':'' ?>><?= LANG==='ar'?'يومي':'Daily' ?></option>
+        <option value="monthly" <?= $type==='monthly'?'selected':'' ?>><?= LANG==='ar'?'شهري':'Monthly' ?></option>
+        <option value="yearly"  <?= $type==='yearly' ?'selected':'' ?>><?= LANG==='ar'?'سنوي':'Yearly' ?></option>
+      </select>
+
+      <!-- From -->
+      <span style="font-size:.8rem;color:var(--muted)"><?= LANG==='ar'?'من:':'From:' ?></span>
+      <input type="date" name="from" id="fromDate" value="<?= $from ?>"
+             style="padding:.42rem .6rem;border-radius:8px;border:1px solid var(--border);font-size:.84rem;background:var(--surface2)"
+             onchange="document.getElementById('quickInput').value=''">
+
+      <!-- To -->
+      <span style="font-size:.8rem;color:var(--muted)"><?= LANG==='ar'?'إلى:':'To:' ?></span>
+      <input type="date" name="to" id="toDate" value="<?= $to ?>"
+             style="padding:.42rem .6rem;border-radius:8px;border:1px solid var(--border);font-size:.84rem;background:var(--surface2)"
+             onchange="document.getElementById('quickInput').value=''">
+
+      <button type="submit" class="btn btn-primary">
+        <i class="fa fa-filter"></i> <?= LANG==='ar'?'تصفية':'Filter' ?>
+      </button>
+      <a href="?type=<?= $type ?>&from=<?= $from ?>&to=<?= $to ?>&export=1&lang=<?= LANG ?>" class="btn btn-secondary">
+        <i class="fa fa-download"></i> CSV
+      </a>
+    </div>
+
+    <!-- Current period label -->
+    <div style="margin-top:.5rem;font-size:.78rem;color:var(--muted)">
+      <i class="fa fa-calendar-days" style="color:var(--brand)"></i>
+      <?= LANG==='ar'?'الفترة الحالية:':'Current period:' ?>
+      <strong style="color:var(--text)"><?= $from ?></strong>
+      <?= LANG==='ar'?'إلى':'to' ?>
+      <strong style="color:var(--text)"><?= $to ?></strong>
+    </div>
+  </form>
+</div>
+
+<script>
+function setQuick(key) {
+  document.getElementById('quickInput').value = key;
+  document.getElementById('reportForm').submit();
+}
+</script>
+
+<!-- Summary stats -->
+<div class="grid-3 mb-2">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(196,146,42,.12);color:var(--brand)"><i class="fa fa-money-bill-wave"></i></div>
+    <div class="stat-label"><?= t('total_sales') ?></div>
+    <div class="stat-value"><?= format_currency((float)$totals['revenue']) ?></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(22,163,74,.12);color:var(--success)"><i class="fa fa-receipt"></i></div>
+    <div class="stat-label"><?= t('invoices') ?></div>
+    <div class="stat-value"><?= number_format((int)$totals['invoices']) ?></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(14,165,233,.12);color:var(--info)"><i class="fa fa-chart-line"></i></div>
+    <div class="stat-label"><?= t('avg_ticket') ?></div>
+    <div class="stat-value"><?= format_currency((float)$totals['avg_ticket']) ?></div>
+  </div>
+</div>
+
+<div class="grid-2 gap-2">
+  <!-- Chart -->
+  <div class="card">
+    <div class="card-title"><i class="fa fa-chart-bar text-brand"></i> <?= LANG==='ar'?'مخطط المبيعات':'Sales Chart' ?></div>
+    <canvas id="reportChart" height="180"></canvas>
+  </div>
+
+  <!-- Top Products -->
+  <div class="card">
+    <div class="card-title"><i class="fa fa-trophy text-brand"></i> <?= t('top_products') ?></div>
+    <?php if (empty($top_products)): ?>
+      <p class="text-muted text-center" style="padding:1rem"><?= t('no_results') ?></p>
+    <?php else: ?>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th><?= t('product_name') ?></th><th><?= t('quantity') ?></th><th><?= t('total_sales') ?></th></tr></thead>
+        <tbody>
+        <?php foreach ($top_products as $i=>$p): ?>
+        <tr>
+          <td style="color:var(--brand);font-weight:800"><?= $i+1 ?></td>
+          <td><?= sanitize(LANG==='ar'?$p['name_ar']:($p['name_en']?:$p['name_ar'])) ?></td>
+          <td class="mono fw-bold"><?= $p['qty'] ?></td>
+          <td class="text-brand fw-bold"><?= format_currency((float)$p['rev']) ?></td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<!-- Data Table -->
+<div class="card mt-2" style="padding:0">
+  <div style="padding:1rem 1.25rem .5rem;font-weight:700;font-size:.95rem">
+    <i class="fa fa-table text-brand"></i> <?= LANG==='ar'?'بيانات التقرير':'Report Data' ?>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th><?= LANG==='ar'?'الفترة':'Period' ?></th>
+        <th><?= t('invoices') ?></th>
+        <th><?= t('total_sales') ?></th>
+        <th><?= t('avg_ticket') ?></th>
+      </tr></thead>
+      <tbody>
+      <?php if (empty($rows)): ?>
+        <tr><td colspan="4" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
+      <?php endif; ?>
+      <?php foreach ($rows as $r): ?>
+      <tr>
+        <td class="mono fw-bold"><?= sanitize($r['period']) ?></td>
+        <td><?= number_format((int)$r['invoices']) ?></td>
+        <td class="text-brand fw-bold"><?= format_currency((float)$r['revenue']) ?></td>
+        <td class="text-muted"><?= format_currency((float)$r['avg_ticket']) ?></td>
+      </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Daily Sold Report -->
+<div class="card mt-2" id="dailySoldReport" style="padding:0">
+  <div style="padding:1rem 1.25rem .5rem;font-weight:700;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+    <span style="font-size:1rem"><i class="fa fa-file-invoice text-brand"></i>
+      <?= LANG==='ar'?'تقرير المبيعات التفصيلي':'Detailed Sold Report' ?>
+      <span class="text-muted" style="font-size:.8rem;margin-<?= ALIGN_START ?>:.5rem">(<?= $from ?> → <?= $to ?>)</span>
+    </span>
+    <button class="btn btn-primary btn-sm" onclick="printDailySoldReport()"><i class="fa fa-print"></i> <?= LANG==='ar'?'طباعة التقرير':'Print Report' ?></button>
+  </div>
+  <div class="table-wrap">
+    <table id="dailySoldTable">
+      <thead><tr>
+        <th>#</th>
+        <th><?= LANG==='ar'?'المنتج':'Product' ?></th>
+        <th><?= LANG==='ar'?'الكمية المباعة':'Qty Sold' ?></th>
+        <th><?= LANG==='ar'?'تكلفة الوحدة':'Unit Cost' ?></th>
+        <th><?= LANG==='ar'?'متوسط سعر البيع':'Avg Sell Price' ?></th>
+        <th><?= LANG==='ar'?'الخصم':'Discount' ?></th>
+        <th><?= LANG==='ar'?'الإجمالي النهائي':'Final Total' ?></th>
+      </tr></thead>
+      <tbody>
+      <?php if (empty($daily_items)): ?>
+        <tr><td colspan="7" class="text-center text-muted" style="padding:2rem"><?= t('no_results') ?></td></tr>
+      <?php else: foreach ($daily_items as $i=>$r): ?>
+      <tr>
+        <td style="color:var(--brand);font-weight:700"><?= $i+1 ?></td>
+        <td class="fw-bold"><?= sanitize(LANG==='ar'?$r['name_ar']:($r['name_en']?:$r['name_ar'])) ?></td>
+        <td class="mono fw-bold"><?= number_format((int)$r['qty_sold']) ?></td>
+        <td class="mono text-muted"><?= format_currency((float)$r['unit_cost']) ?></td>
+        <td class="mono" style="color:var(--brand)"><?= format_currency((float)$r['avg_price']) ?></td>
+        <td class="mono" style="color:var(--danger)"><?= $r['total_discount']>0 ? '- '.format_currency((float)$r['total_discount']) : '—' ?></td>
+        <td class="mono fw-bold text-brand"><?= format_currency((float)$r['final_total']) ?></td>
+      </tr>
+      <?php endforeach; endif; ?>
+      </tbody>
+      <?php if (!empty($daily_items)): ?>
+      <tfoot>
+        <tr style="background:var(--surface2);font-weight:800;font-size:.9rem">
+          <td colspan="2"><?= LANG==='ar'?'الإجمالي':'TOTAL' ?></td>
+          <td class="mono"><?= number_format(array_sum(array_column($daily_items,'qty_sold'))) ?></td>
+          <td class="mono text-muted"><?= format_currency($daily_total_cost) ?></td>
+          <td></td>
+          <td class="mono" style="color:var(--danger)"><?= $daily_total_discount>0 ? '- '.format_currency($daily_total_discount) : '—' ?></td>
+          <td class="mono fw-bold text-brand" style="font-size:1rem"><?= format_currency($daily_grand_total) ?></td>
+        </tr>
+      </tfoot>
+      <?php endif; ?>
+    </table>
+  </div>
+</div>
+
+<script>
+function printDailySoldReport() {
+  const lang = '<?= LANG ?>';
+  const dir  = '<?= DIR ?>';
+  const from = '<?= $from ?>';
+  const to   = '<?= $to ?>';
+  const currency = '<?= get_setting("currency_symbol","IQD") ?>';
+  const storeName = '<?= store_name() ?>';
+  const table = document.getElementById('dailySoldTable').outerHTML;
+  const title = lang==='ar' ? 'تقرير المبيعات التفصيلي' : 'Detailed Sales Report';
+  const period = lang==='ar' ? `الفترة: ${from} — ${to}` : `Period: ${from} — ${to}`;
+  const grandTotal = '<?= format_currency($daily_grand_total) ?>';
+  const html = `<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head>
+    <meta charset="UTF-8"><title>${title}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Tajawal','Arial',sans-serif;font-size:13px;padding:20px;color:#000;direction:${dir}}
+      h2{text-align:center;margin-bottom:4px;font-size:20px}
+      .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th{background:#1C1410;color:#fff;padding:7px;text-align:${dir==='rtl'?'right':'left'};font-size:12px}
+      td{padding:6px 7px;border-bottom:1px solid #ddd;font-size:12px}
+      tfoot td{background:#f5f0eb;font-weight:800;border-top:2px solid #000}
+      tr:nth-child(even){background:#fafafa}
+      .grand-total{text-align:center;margin-top:15px;font-size:18px;font-weight:900;border:2px solid #C4922A;padding:10px;border-radius:8px;background:rgba(196,146,42,.08)}
+      @media print{@page{margin:10mm};button{display:none}}
+    </style>
+  </head><body>
+    <h2>${storeName}</h2>
+    <div class="sub">${title}<br>${period}</div>
+    ${table}
+    <div class="grand-total">${lang==='ar'?'الإجمالي الكلي للفترة':'Grand Total for Period'}: ${grandTotal}</div>
+    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
+  </body></html>`;
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write(html); w.document.close();
+}
+</script>
+
+<script src="/bangeen_pos/lib/chart.min.js"></script>
+<script>
+const chartRows = <?= json_encode($rows) ?>;
+new Chart(document.getElementById('reportChart').getContext('2d'),{
+  type:'line',
+  data:{
+    labels: chartRows.map(r=>r.period),
+    datasets:[{
+      label:'<?= LANG==="ar"?"المبيعات":"Revenue" ?>',
+      data: chartRows.map(r=>parseFloat(r.revenue)),
+      borderColor:'#C4922A',
+      backgroundColor:'rgba(196,146,42,.08)',
+      borderWidth:2.5,
+      pointBackgroundColor:'#C4922A',
+      pointRadius:4,
+      tension:.35,
+      fill:true,
+    },{
+      label:'<?= LANG==="ar"?"عدد الفواتير":"Invoices" ?>',
+      data: chartRows.map(r=>parseInt(r.invoices)),
+      borderColor:'#16a34a',
+      backgroundColor:'rgba(22,163,74,.05)',
+      borderWidth:2,
+      pointBackgroundColor:'#16a34a',
+      pointRadius:3,
+      tension:.35,
+      fill:false,
+      yAxisID:'y2',
+    }]
+  },
+  options:{
+    responsive:true,
+    plugins:{legend:{labels:{color:'#5C4A3A',font:{size:12}}}},
+    scales:{
+      y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9C8A7A',font:{family:'monospace'}}},
+      y2:{position:'<?= DIR==="rtl"?"left":"right" ?>',beginAtZero:true,grid:{display:false},ticks:{color:'#9C8A7A'}},
+      x:{grid:{display:false},ticks:{color:'#9C8A7A',font:{size:11}}}
+    }
+  }
+});
+</script>
+
+
+<!-- Category POS Sales — Detailed -->
+<div class="card" style="margin-top:1rem">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+    <span>
+      <i class="fa fa-tags" style="color:var(--brand)"></i>
+      <?= LANG==='ar' ? 'مبيعات نقطة بيع الفئات' : 'Category POS Sales' ?>
+      <span style="font-size:.75rem;font-weight:400;color:var(--muted);margin-<?= ALIGN_START ?>:.5rem">
+        (<?= $from ?> &rarr; <?= $to ?>)
+      </span>
+    </span>
+  </div>
+
+  <?php if (empty($cat_sales)): ?>
+    <p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">
+      <?= LANG==='ar' ? 'لا توجد مبيعات فئات في هذه الفترة' : 'No category POS sales in this period' ?>
+    </p>
+  <?php else: ?>
+
+  <!-- Summary cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem">
+    <div style="background:var(--surface2);border-radius:10px;padding:.85rem;text-align:center;border:1px solid var(--border)">
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em"><?= LANG==='ar'?'إجمالي قبل الخصم':'Gross Total' ?></div>
+      <div style="font-size:1.25rem;font-weight:800;color:var(--text);font-family:var(--font-en)"><?= number_format($cat_gross_total) ?></div>
+      <div style="font-size:.7rem;color:var(--muted)"><?= $currency ?></div>
+    </div>
+    <div style="background:rgba(220,38,38,.06);border-radius:10px;padding:.85rem;text-align:center;border:1px solid rgba(220,38,38,.15)">
+      <div style="font-size:.7rem;color:var(--danger);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em"><?= LANG==='ar'?'إجمالي الخصومات':'Total Discounts' ?></div>
+      <div style="font-size:1.25rem;font-weight:800;color:var(--danger);font-family:var(--font-en)"><?= $cat_discount_total > 0 ? '-'.number_format($cat_discount_total) : '0' ?></div>
+      <div style="font-size:.7rem;color:var(--muted)"><?= $currency ?></div>
+    </div>
+    <div style="background:rgba(196,146,42,.08);border-radius:10px;padding:.85rem;text-align:center;border:1px solid rgba(196,146,42,.25)">
+      <div style="font-size:.7rem;color:var(--brand);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em"><?= LANG==='ar'?'صافي المبيعات':'Net Total' ?></div>
+      <div style="font-size:1.25rem;font-weight:800;color:var(--brand);font-family:var(--font-en)"><?= number_format($cat_net_total) ?></div>
+      <div style="font-size:.7rem;color:var(--muted)"><?= $currency ?></div>
+    </div>
+  </div>
+
+  <!-- Detailed table per category -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th><?= LANG==='ar'?'الفئة':'Category' ?></th>
+          <th style="text-align:right"><?= LANG==='ar'?'عدد الفواتير':'Invoices' ?></th>
+          <th style="text-align:right"><?= LANG==='ar'?'المبلغ قبل الخصم':'Before Discount' ?></th>
+          <th style="text-align:right"><?= LANG==='ar'?'الخصم':'Discount' ?></th>
+          <th style="text-align:right"><?= LANG==='ar'?'بعد الخصم':'After Discount' ?></th>
+          <th style="text-align:right"><?= LANG==='ar'?'النسبة من الكل':'Share' ?></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($cat_sales as $idx => $cs):
+          $catName = LANG==='ar' ? $cs['cat_ar'] : ($cs['cat_en']?:$cs['cat_ar']);
+          $share   = $cat_net_total > 0 ? round($cs['net'] / $cat_net_total * 100, 1) : 0;
+          $gross   = (float)$cs['gross'];
+          $disc    = (float)$cs['item_discount'];
+          $net     = (float)$cs['net'];
+        ?>
+        <tr>
+          <td style="color:var(--brand);font-weight:700"><?= $idx+1 ?></td>
+          <td><strong><?= htmlspecialchars($catName) ?></strong></td>
+          <td style="text-align:right;font-family:var(--font-en)"><?= number_format((int)$cs['sale_rows']) ?></td>
+          <td style="text-align:right;font-family:var(--font-en);color:var(--text2)"><?= number_format($gross) ?> <?= $currency ?></td>
+          <td style="text-align:right;font-family:var(--font-en);color:var(--danger)">
+            <?= $disc > 0 ? '- '.number_format($disc).' '.$currency : '<span style="color:var(--muted)">—</span>' ?>
+          </td>
+          <td style="text-align:right;font-family:var(--font-en);font-weight:800;color:var(--brand);font-size:.95rem"><?= number_format($net) ?> <?= $currency ?></td>
+          <td style="text-align:right">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:.4rem">
+              <div style="width:60px;height:7px;background:var(--border);border-radius:3px;overflow:hidden">
+                <div style="width:<?= $share ?>%;height:100%;background:var(--brand);border-radius:3px"></div>
+              </div>
+              <span style="font-size:.78rem;font-weight:700;font-family:var(--font-en)"><?= $share ?>%</span>
+            </div>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--surface2);font-weight:800">
+          <td colspan="2"><?= LANG==='ar'?'الإجمالي الكلي':'Grand Total' ?></td>
+          <td style="text-align:right;font-family:var(--font-en)"><?= number_format(array_sum(array_column($cat_sales,'sale_rows'))) ?></td>
+          <td style="text-align:right;font-family:var(--font-en);color:var(--text2)"><?= number_format($cat_gross_total) ?> <?= $currency ?></td>
+          <td style="text-align:right;font-family:var(--font-en);color:var(--danger)"><?= $cat_discount_total > 0 ? '- '.number_format($cat_discount_total).' '.$currency : '—' ?></td>
+          <td style="text-align:right;font-family:var(--font-en);font-weight:900;color:var(--brand);font-size:1.05rem"><?= number_format($cat_net_total) ?> <?= $currency ?></td>
+          <td style="text-align:right;font-weight:800">100%</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . '/includes/layout_end.php'; ?>
