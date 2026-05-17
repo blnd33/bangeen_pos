@@ -608,16 +608,29 @@ function printReceipt(data) {
 
 <script>
   window.onload = function() {
-    setTimeout(function(){ window.print(); }, 500);
+    setTimeout(function(){ window.print(); window.close(); }, 500);
   };
 <\/script>
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=420,height=650');
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  // Silent print via hidden iframe — no print dialog
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:0;opacity:0';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+  iframe.contentWindow.focus();
+  setTimeout(function() {
+    try {
+      iframe.contentWindow.print();
+    } catch(e) {
+      const win = window.open('', '_blank', 'width=420,height=650');
+      if (win) { win.document.write(html); win.document.close(); }
+    }
+    setTimeout(function() { document.body.removeChild(iframe); }, 3000);
+  }, 600);
 }
 
 loadProducts(0);

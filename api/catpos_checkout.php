@@ -69,10 +69,13 @@ try {
            ]);
 
         $items_out[] = [
-            'name'  => LANG === 'ar' ? $cat_ar : $cat_en,
-            'gross' => $gross,
-            'disc'  => $itemDisc,
-            'net'   => $net,
+            'name'    => LANG === 'ar' ? $cat_ar : $cat_en,
+            'name_ar' => $cat_ar,
+            'name_en' => $cat_en,
+            'gross'   => $gross,
+            'disc'    => $itemDisc,
+            'net'     => $net,
+            'subtotal'=> $net,
         ];
     }
 
@@ -85,15 +88,26 @@ try {
     }
 
     json_response([
-        'success'        => true,
-        'invoice'        => $invoice,
-        'sale_id'        => $sale_id,
-        'items'          => $items_out,
-        'subtotal'       => $sub,
-        'discount_total' => $disc,
-        'total'          => $total,
-        'payment_method' => $method,
-        'currency'       => $settings['currency_symbol'] ?? 'IQD',
+        'success'          => true,
+        'invoice'          => $invoice,
+        'sale_id'          => $sale_id,
+        'cashier'          => $user['name'],
+        'date'             => date('Y-m-d H:i:s'),
+        'items'            => $items_out,
+        'subtotal'         => $sub,
+        'discount_total'   => $disc,
+        'total'            => $total,
+        'payment_method'   => $method,
+        'cash_tendered'    => $cash,
+        'change_given'     => $change,
+        'currency'         => $settings['currency_symbol'] ?? ($settings['currency'] ?? 'IQD'),
+        'store_name_ar'    => $settings['store_name_ar']    ?? 'بهنگین کریستال',
+        'store_name_en'    => $settings['store_name_en']    ?? 'Bangeen Crystal',
+        'store_address_ar' => $settings['store_address_ar'] ?? '',
+        'store_address_en' => $settings['store_address_en'] ?? '',
+        'store_phone'      => $settings['store_phone']      ?? '',
+        'footer_ar'        => $settings['receipt_footer_ar'] ?? 'شكراً لزيارتكم',
+        'footer_en'        => $settings['receipt_footer_en'] ?? 'Thank you for your visit',
     ]);
 
 } catch (Exception $e) {

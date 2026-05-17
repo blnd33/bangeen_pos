@@ -10,6 +10,17 @@ ini_set('display_errors', 1);
 
 define('POS_VERSION', '1.0.0');
 define('BASE_PATH', dirname(__DIR__));
+
+// Auto-detect base URL so it works on any device/IP
+if (!defined('BASE_URL')) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // Get the folder name dynamically
+    $script   = $_SERVER['SCRIPT_NAME'] ?? '/bangeen_pos/index.php';
+    $parts    = explode('/', trim($script, '/'));
+    $folder   = '/' . ($parts[0] ?? 'bangeen_pos');
+    define('BASE_URL', $protocol . '://' . $host . $folder);
+}
 define('BARCODE_DIR', BASE_PATH . '/barcodes/');
 define('BARCODE_URL', 'barcodes/');
 define('BACKUP_DIR',  BASE_PATH . '/backups/');
@@ -204,7 +215,7 @@ function require_login(): void {
             http_response_code(401);
             die(json_encode(['success'=>false,'error'=>'Unauthorized']));
         }
-        header('Location: /bangeen_pos/index.php');
+        header('Location: ' . BASE_URL . '/index.php');
         exit;
     }
 }
@@ -212,7 +223,7 @@ function require_login(): void {
 function require_role(string ...$roles): void {
     $user = current_user();
     if (!$user || !in_array($user['role'], $roles)) {
-        header('Location: /bangeen_pos/dashboard.php?lang=' . LANG . '&denied=1');
+        header('Location: ' . BASE_URL . '/dashboard.php?lang=' . LANG . '&denied=1');
         exit;
     }
 }
@@ -304,7 +315,7 @@ function require_permission(string $page): void {
                 : 'You do not have permission to access this page',
             'error'
         );
-        header('Location: /bangeen_pos/dashboard.php?lang=' . LANG . '&denied=1');
+        header('Location: ' . BASE_URL . '/dashboard.php?lang=' . LANG . '&denied=1');
         exit;
     }
 }
