@@ -56,7 +56,6 @@ $daily_grand_total = array_sum(array_column($daily_items, 'final_total'));
 $daily_total_discount = array_sum(array_column($daily_items, 'total_discount'));
 $daily_total_cost = array_sum(array_map(fn($r)=>$r['unit_cost']*$r['qty_sold'], $daily_items));
 
-<<<<<<< HEAD
 // ── Category POS sales (catpos.php — product_id IS NULL) ──
 $cat_sales_stmt = $db->prepare("
     SELECT si.product_name_ar AS cat_ar, si.product_name_en AS cat_en,
@@ -76,8 +75,6 @@ $cat_gross_total    = array_sum(array_column($cat_sales, 'gross'));
 $cat_discount_total = array_sum(array_column($cat_sales, 'item_discount'));
 $cat_net_total      = array_sum(array_column($cat_sales, 'net'));
 
-=======
->>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
 // CSV Export
 if ($export) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -259,16 +256,18 @@ function printDailySoldReport() {
     <meta charset="UTF-8"><title>${title}</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:'Tajawal','Arial',sans-serif;font-size:13px;padding:20px;color:#000;direction:${dir}}
-      h2{text-align:center;margin-bottom:4px;font-size:20px}
-      .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+      body{font-family:'Tajawal','Tahoma','Arial',sans-serif;font-size:14px;font-weight:800;padding:20px;color:#000;direction:${dir};-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body,table,th,td,div,span,strong{color:#000!important;font-weight:800}
+      strong,b,h2,tfoot td,.grand-total{font-weight:900!important}
+      h2{text-align:center;margin-bottom:4px;font-size:21px}
+      .sub{text-align:center;color:#000;font-size:13px;font-weight:800;margin-bottom:12px}
       table{width:100%;border-collapse:collapse;margin-top:10px}
-      th{background:#1C1410;color:#fff;padding:7px;text-align:${dir==='rtl'?'right':'left'};font-size:12px}
-      td{padding:6px 7px;border-bottom:1px solid #ddd;font-size:12px}
-      tfoot td{background:#f5f0eb;font-weight:800;border-top:2px solid #000}
-      tr:nth-child(even){background:#fafafa}
-      .grand-total{text-align:center;margin-top:15px;font-size:18px;font-weight:900;border:2px solid #C4922A;padding:10px;border-radius:8px;background:rgba(196,146,42,.08)}
-      @media print{@page{margin:10mm};button{display:none}}
+      th{background:#000;color:#fff!important;padding:7px;text-align:${dir==='rtl'?'right':'left'};font-size:13px;font-weight:900!important}
+      td{padding:6px 7px;border-bottom:1px solid #000;font-size:13px}
+      tfoot td{background:#fff;font-weight:900;border-top:3px solid #000}
+      tr:nth-child(even){background:#fff}
+      .grand-total{text-align:center;margin-top:15px;font-size:20px;font-weight:900;border:3px solid #000;padding:10px;border-radius:0;background:#fff;color:#000!important}
+      @media print{@page{margin:10mm};button{display:none}body{font-weight:900}}
     </style>
   </head><body>
     <h2>${storeName}</h2>
@@ -324,7 +323,6 @@ new Chart(document.getElementById('reportChart').getContext('2d'),{
 });
 </script>
 
-<<<<<<< HEAD
 <!-- ── Category POS Sales breakdown ─────────────────────────── -->
 <div class="card" style="margin-top:1rem">
   <div class="card-title">
@@ -404,6 +402,3 @@ new Chart(document.getElementById('reportChart').getContext('2d'),{
 </div>
 
 <?php require_once __DIR__ . '/includes/layout_end.php'; ?>
-=======
-<?php require_once __DIR__ . '/includes/layout_end.php'; ?>
->>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4

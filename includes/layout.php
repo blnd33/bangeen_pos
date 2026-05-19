@@ -280,6 +280,44 @@ tr:hover td{background:var(--surface2)}
 .mb-2{margin-bottom:1rem}
 .w-100{width:100%}
 .divider{height:1px;background:var(--border);margin:1rem 0}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+  html, body {
+    background:#fff !important;
+    color:#000 !important;
+    font-weight:800 !important;
+  }
+  body, table, th, td, div, span, p, label, input, select, textarea {
+    color:#000 !important;
+    font-weight:800 !important;
+  }
+  strong, b, h1, h2, h3, h4, h5, h6,
+  .fw-bold, .stat-value, .card-title, .total-row, .grand,
+  .text-brand, .text-danger, .text-warning {
+    color:#000 !important;
+    font-weight:900 !important;
+  }
+  table, th, td, .card, .stat-card, .table-wrap {
+    border-color:#000 !important;
+  }
+  th {
+    background:#000 !important;
+    color:#fff !important;
+    font-weight:900 !important;
+  }
+  td {
+    border-bottom-color:#000 !important;
+  }
+  .text-muted, .stat-sub, .stat-label {
+    color:#000 !important;
+  }
+}
 </style>
 </head>
 <body>

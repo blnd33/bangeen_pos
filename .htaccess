@@ -10,6 +10,10 @@ ServerSignature Off
 # Protect sensitive directories
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Allow old/bookmarked folder-style app URLs, e.g. /bangeen_pos/dashboard/
+    RewriteRule ^(dashboard|pos|catpos|reports|sales|products|categories|suppliers|stock|exchange|finance|settings|users|permissions|backup|reset)/?$ $1.php [L,QSA]
+
     RewriteRule ^includes/ - [F,L]
     RewriteRule ^lib/barcode/ - [F,L]
     RewriteRule ^backups/ - [F,L]

@@ -541,41 +541,53 @@ function printReceiptCat(data, cashPaid) {
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: 'Tajawal', 'Arial', sans-serif;
-    font-size: 13px;
+    font-family: 'Tajawal', 'Tahoma', 'Arial', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
     width: 80mm;
     margin: 0 auto;
     padding: 8px;
     color: #000;
     direction: ${dir};
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    text-rendering: geometricPrecision;
   }
-  .header { text-align:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid #000; }
+  body, table, th, td, div, span, p {
+    color:#000 !important;
+    font-weight:800;
+  }
+  strong, b, .store-name, .total-row.grand, .total-row.grand span {
+    font-weight:900 !important;
+  }
+  .header { text-align:center; margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #000; }
   .store-name { font-size:18px; font-weight:900; margin-bottom:3px; }
-  .store-info { font-size:11px; color:#444; line-height:1.5; }
-  .invoice-info { margin:8px 0; padding:6px; background:#f5f0eb; border-radius:4px; font-size:11px; }
+  .store-info { font-size:12px; color:#000; line-height:1.5; }
+  .invoice-info { margin:8px 0; padding:6px; border:2px solid #000; border-radius:0; font-size:12px; }
   .invoice-info div { display:flex; justify-content:space-between; padding:2px 0; }
-  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:12px; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13px; }
   thead th {
-    background:#222; color:#fff; padding:5px 3px;
-    text-align:${alignS}; font-size:11px; font-weight:700;
+    background:#000; color:#fff !important; padding:5px 3px;
+    text-align:${alignS}; font-size:12px; font-weight:900 !important;
   }
   thead th:last-child, thead th:nth-child(3) { text-align:${alignE}; }
-  tbody tr:nth-child(even) { background:#f9f9f9; }
-  .totals { margin-top:8px; border-top:2px solid #000; padding-top:8px; }
-  .total-row { display:flex; justify-content:space-between; padding:3px 0; font-size:12px; }
+  tbody td { padding:3px 2px; border-bottom:1px solid #000; }
+  tbody tr:nth-child(even) { background:#fff; }
+  .totals { margin-top:8px; border-top:3px solid #000; padding-top:8px; }
+  .total-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
   .total-row.grand {
-    font-size:15px; font-weight:900;
-    border-top:1px solid #000; border-bottom:1px solid #000;
+    font-size:17px; font-weight:900;
+    border:3px solid #000;
     margin:5px 0; padding:5px 0;
-    background:#C4922A; color:#fff;
+    background:#fff; color:#000 !important;
     padding-left:6px; padding-right:6px;
   }
-  .payment-info { margin-top:8px; padding:6px; border:1px dashed #ccc; border-radius:4px; font-size:11px; }
+  .payment-info { margin-top:8px; padding:6px; border:2px dashed #000; border-radius:0; font-size:12px; }
   .payment-info div { display:flex; justify-content:space-between; padding:2px 0; }
-  .footer { text-align:center; margin-top:12px; padding-top:8px; border-top:1px dashed #aaa; font-size:11px; color:#666; line-height:1.6; }
+  .footer { text-align:center; margin-top:12px; padding-top:8px; border-top:2px dashed #000; font-size:12px; color:#000; line-height:1.6; }
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
   @media print {
-    body { width:80mm; }
+    body { width:80mm; font-weight:900; }
     @page { margin:0; size:80mm auto; }
   }
 </style>

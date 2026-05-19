@@ -7,20 +7,15 @@ ServerSignature Off
     Deny from all
 </FilesMatch>
 
-<<<<<<< HEAD
-# Protect sensitive directories but ALLOW lib/js and lib/css
-=======
-# Protect sensitive directories but ALLOW assets
->>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Allow old/bookmarked folder-style app URLs, e.g. /bangeen_pos/dashboard/
+    RewriteRule ^(dashboard|pos|catpos|reports|sales|products|categories|suppliers|stock|exchange|finance|settings|users|permissions|backup|reset)/?$ $1.php [L,QSA]
+
     RewriteRule ^assets/ - [L]
     RewriteRule ^includes/ - [F,L]
-<<<<<<< HEAD
     RewriteRule ^lib/.*\.(php|sql|sh|env)$ - [F,L]
-=======
-    RewriteRule ^lib/ - [F,L]
->>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4
     RewriteRule ^backups/ - [F,L]
 </IfModule>
 
@@ -31,8 +26,4 @@ AddDefaultCharset UTF-8
 <IfModule mod_headers.c>
     Header set X-Frame-Options "SAMEORIGIN"
     Header set X-Content-Type-Options "nosniff"
-<<<<<<< HEAD
 </IfModule>
-=======
-</IfModule>
->>>>>>> d379584effc3ed3c0c6e3e5f85ec598a5b9e45e4

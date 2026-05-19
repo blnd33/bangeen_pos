@@ -11,18 +11,22 @@ $values = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 10000];
 <style>
 @media print {
   .no-print{display:none!important}
-  body{background:#fff}
+  body{background:#fff;color:#000!important;font-weight:800!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body *{color:#000!important;font-weight:800!important}
   .cat-section{page-break-inside:avoid;margin-bottom:1.5rem}
+  .cat-section-title{border-bottom:3px solid #000!important;font-weight:900!important}
+  .bc-card{border:2px solid #000!important}
+  .bc-cat-name,.bc-value,.bc-raw{color:#000!important;font-weight:900!important}
 }
 .no-print{margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
 .cat-section{margin-bottom:2rem;border:1px solid #e0d5c5;border-radius:12px;padding:1rem;background:#fdfaf6}
-.cat-section-title{font-size:1rem;font-weight:700;margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:2px solid;display:flex;align-items:center;gap:.5rem}
+.cat-section-title{font-size:1rem;font-weight:900;margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:2px solid;display:flex;align-items:center;gap:.5rem}
 .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem}
 .bc-card{border:1.5px solid #d0c5b0;border-radius:8px;padding:.6rem .4rem;text-align:center;background:#fff;page-break-inside:avoid}
-.bc-cat-name{font-size:.7rem;font-weight:700;color:#555;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-cat-name{font-size:.75rem;font-weight:900;color:#000;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bc-svg{width:100%;height:48px}
-.bc-value{font-size:.85rem;font-weight:800;font-family:monospace;margin-top:.2rem;color:#1C1410}
-.bc-raw{font-size:.58rem;color:#999;margin-top:.1rem;font-family:monospace}
+.bc-value{font-size:.9rem;font-weight:900;font-family:monospace;margin-top:.2rem;color:#000}
+.bc-raw{font-size:.62rem;color:#000;margin-top:.1rem;font-family:monospace;font-weight:800}
 </style>
 
 <div class="no-print">
@@ -69,9 +73,9 @@ function renderBarcodes() {
   document.querySelectorAll('svg[data-val]').forEach(svg => {
     try {
       JsBarcode(svg, svg.dataset.val, {
-        format:'CODE128', width:1.4, height:40,
+        format:'CODE128', width:1.8, height:42,
         displayValue:false, margin:2,
-        background:'transparent', lineColor:'#1C1410'
+        background:'transparent', lineColor:'#000000'
       });
     } catch(e) {
       svg.innerHTML = '<text x="50%" y="55%" text-anchor="middle" font-size="8" fill="#999">ERR</text>';

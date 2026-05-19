@@ -14,6 +14,9 @@ try {
     $total_products = (int)$db->query("SELECT COUNT(*) FROM products WHERE is_active=1")->fetchColumn();
     $low_stock = (int)$db->query("SELECT COUNT(*) FROM products WHERE stock_qty <= low_stock_threshold AND is_active=1")->fetchColumn();
     $month_rev = (float)$db->query("SELECT COALESCE(SUM(total),0) FROM sales WHERE MONTH(created_at)=MONTH(NOW()) AND YEAR(created_at)=YEAR(NOW()) AND status='completed'")->fetchColumn();
+    $sv = $db->prepare("SELECT COUNT(*) FROM sales WHERE DATE(created_at)=? AND status='void'"); $sv->execute([$today]); $today_void = (int)$sv->fetchColumn();
+    $today_expenses = 0.0;
+    try { $ex = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE expense_date=?"); $ex->execute([$today]); $today_expenses = (float)$ex->fetchColumn(); } catch(Exception $e) {}
     $dash_from = $_GET['dash_from'] ?? date('Y-m-d');
     $dash_to   = $_GET['dash_to']   ?? date('Y-m-d');
     $recent_stmt = $db->prepare("SELECT s.invoice_number, s.total, s.payment_method, s.created_at FROM sales s WHERE DATE(s.created_at) BETWEEN ? AND ? ORDER BY s.created_at DESC LIMIT 20");
@@ -44,6 +47,21 @@ try {
     <div class="stat-sub"><?= date('M Y') ?></div>
   </div>
   <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(220,38,38,.12);color:var(--danger)"><i class="fa fa-ban"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'ملغي اليوم':'Cancelled Today' ?></div>
+    <div class="stat-value" style="color:<?= $today_void>0?'var(--danger)':'inherit' ?>"><?= $today_void ?></div>
+    <div class="stat-sub"><a href="<?= BASE_URL ?>/exchange.php?lang=<?= LANG ?>" style="color:inherit"><?= LANG==='ar'?'عرض السجل':'View history' ?></a></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(217,119,6,.12);color:var(--warning)"><i class="fa fa-receipt"></i></div>
+    <div class="stat-label"><?= LANG==='ar'?'مصروفات اليوم':'Today Expenses' ?></div>
+    <div class="stat-value" style="color:<?= $today_expenses>0?'var(--warning)':'inherit' ?>"><?= format_currency($today_expenses) ?></div>
+    <div class="stat-sub"><a href="<?= BASE_URL ?>/finance.php?lang=<?= LANG ?>" style="color:inherit"><?= LANG==='ar'?'إدارة المصروفات':'Manage expenses' ?></a></div>
+  </div>
+</div>
+
+<div class="grid-4 mb-2" style="grid-template-columns:repeat(2,1fr)">
+  <div class="stat-card">
     <div class="stat-icon" style="background:rgba(14,165,233,.12);color:var(--info)"><i class="fa fa-box-open"></i></div>
     <div class="stat-label"><?= t('total_products') ?></div>
     <div class="stat-value"><?= $total_products ?></div>
@@ -53,7 +71,7 @@ try {
     <div class="stat-icon" style="background:rgba(217,119,6,.12);color:var(--warning)"><i class="fa fa-triangle-exclamation"></i></div>
     <div class="stat-label"><?= t('low_stock_alert') ?></div>
     <div class="stat-value" style="color:<?= $low_stock>0?'var(--warning)':'var(--success)' ?>"><?= $low_stock ?></div>
-    <div class="stat-sub"><a href="http://localhost/bangeen_pos/stock.php?lang=<?= LANG ?>" style="color:inherit"><?= LANG==='ar'?'عرض المخزون':'View stock' ?></a></div>
+    <div class="stat-sub"><a href="<?= BASE_URL ?>/stock.php?lang=<?= LANG ?>" style="color:inherit"><?= LANG==='ar'?'عرض المخزون':'View stock' ?></a></div>
   </div>
 </div>
 

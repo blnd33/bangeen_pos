@@ -140,6 +140,12 @@ require_once __DIR__ . '/includes/layout.php';
 
     body * { visibility: hidden !important; }
     #printArea, #printArea * { visibility: visible !important; }
+    #printArea, #printArea * {
+        color: #000 !important;
+        font-weight: 900 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 
     #printArea {
         position: fixed;
@@ -200,7 +206,7 @@ require_once __DIR__ . '/includes/layout.php';
     .sticker-number {
         font-family: 'Courier New', monospace !important;
         font-size: 7pt !important;
-        font-weight: 700 !important;
+        font-weight: 900 !important;
         letter-spacing: 2px !important;
         color: #000 !important;
         text-align: center !important;
@@ -564,8 +570,8 @@ function executePrint(products, copies, showPrice){
     try {
       JsBarcode(svg, svg.dataset.val, {
         format:       'CODE128',
-        width:        1.5,
-        height:       38,
+        width:        2,
+        height:       40,
         displayValue: false,
         margin:       0,
         background:   '#ffffff',
